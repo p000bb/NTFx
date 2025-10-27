@@ -79,7 +79,7 @@
 <script lang="ts" setup>
 import { useFullscreen } from "@vueuse/core";
 import { HelpCircle, Settings, Maximize, Minimize, Download, RotateCcw, BarChart3 } from "lucide-vue-next";
-import { ref, toRef } from "vue";
+import { nextTick, ref, toRef } from "vue";
 import SettingModal from "./settingModal.vue";
 import DownloadModal from "./downloadModal.vue";
 import InformationPanel from "./informationPanel.vue";
@@ -124,7 +124,10 @@ const onDownload = async () => {
   if (conflict) {
     message.error("存在冲突的引脚");
   } else {
-    downloadModalRef.value?.open();
+    onRestore();
+    nextTick(() => {
+      downloadModalRef.value?.open();
+    });
   }
 };
 //#endregion

@@ -7,7 +7,7 @@
     <div
       v-if="show"
       :class="[
-        'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] bg-white rounded-lg shadow-xl z-50 transition-all duration-300',
+        'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] bg-white rounded-lg shadow-xl z-50 transition-all duration-300',
         show ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
       ]"
     >

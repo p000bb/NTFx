@@ -1,6 +1,6 @@
 <template>
   <Modal v-model="visible">
-    <div>
+    <div class="p-4">
       <!-- 预览 -->
       <div class="w-full h-full aspect-square p-4">
         <div class="border border-border rounded-lg w-full h-full" v-html="pureSvgCode"></div>
@@ -41,7 +41,7 @@ const pureSvgCode = computed(() =>
     .replace(/^<\?xml.*?\?>\s*/i, "")
     .replace(
       /<svg /,
-      '<svg style="width:150%;height:150%;display:block;margin:auto;transform: translate(-146.5px, -146.5px);pointer-events:none;" '
+      '<svg style="width:150%;height:150%;display:block;margin:auto;transform: translate(-132.5px, -132.5px);pointer-events:none;" '
     )
 );
 
