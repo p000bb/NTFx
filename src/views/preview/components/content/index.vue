@@ -2,7 +2,7 @@
   <div class="h-full">
     <div class="flex items-center justify-between p-4 absolute top-0 left-0 right-0 w-full z-10">
       <div class="flex items-center gap-2">
-        <div class="w-36 relative">
+        <div class="w-36 relative" v-if="chipInfo">
           <input
             v-model="keyword"
             class="w-full pl-8 pr-3 py-1 border bg-primary-50 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-primary-200 placeholder:text-gray-400"
@@ -15,7 +15,7 @@
           <select
             v-if="selectList.length"
             v-model="selectedChip"
-            class="select-chip w-full pl-3 pr-6 py-1 bg-primary-50 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-primary-200 rounded placeholder:text-gray-400"
+            class="select-chip w-full pl-3 pr-6 py-1.5 bg-primary-50 text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-primary-200 rounded placeholder:text-gray-400"
           >
             <option v-for="chip in selectList" :key="chip.label" :value="chip.value">
               {{ chip.label }}
@@ -26,15 +26,20 @@
 
       <div class="flex items-center gap-4">
         <div>
-          <FileSelect @fileParsed="fileParsed" @fileSelected="fileSelected" @error="error" />
+          <!-- <FileSelect type="button" @fileParsed="fileParsed" @fileSelected="fileSelected" @error="error" /> -->
         </div>
         <LanguageSelect />
       </div>
     </div>
     <div class="h-full">
       <ChipPin v-model="chipInfo" :name="selectedChip" v-if="chipInfo" />
+      <div class="w-full h-full flex justify-center items-center" v-else>
+        <div class="w-2/5">
+          <FileSelect type="dropzone" @fileParsed="fileParsed" @fileSelected="fileSelected" @error="error" />
+        </div>
+      </div>
     </div>
-    <Tools class="absolute bottom-0 right-0 p-4" :main-el="mainEl" />
+    <Tools class="absolute bottom-0 right-0 p-4" :main-el="mainEl" v-if="chipInfo" />
   </div>
 </template>
 
@@ -50,12 +55,18 @@ import FileSelect from "@/components/FileSelect/index.vue";
 import message from "@/utils/message";
 import { Chip } from "@/types/chip";
 import ChipService from "@/services/chipService";
+import { useRoute } from "vue-router";
 
+const route = useRoute();
 const chipList = ref<Chip[]>([]);
 const keyword = ref<string>("");
 const selectedChip = ref<number | undefined>(undefined);
 
 const chipInfo = ref<Chip | null>(null);
+
+const projectId = computed(() => {
+  return Number(route.params.id);
+});
 
 watch(
   () => selectedChip.value,
@@ -99,17 +110,20 @@ const fileSelected = (file: File) => {
 const fileParsed = async (data: any[]) => {
   try {
     // 1. 格式化数据
-    const formattedChips = formatData(data) || [];
-    // chipList.value = formattedChips;
+    const formattedChips =
+      formatData(data)?.map((item) => ({
+        ...item,
+        projectId: projectId.value
+      })) || [];
 
     if (formattedChips.length === 0) {
       return;
     }
 
     // 使用批量添加方法
-    await ChipService.batchAddChips(formattedChips);
+    await ChipService.batchAddChips(formattedChips, projectId.value);
 
-    const chips = await ChipService.getAllChips();
+    const chips = await ChipService.getAllChips(projectId.value);
     chipList.value = chips;
     if (chips.length) {
       selectedChip.value = chips[0].id;
@@ -211,7 +225,7 @@ const formatData = (data: any[]) => {
 
 // #region 获取芯片列表
 const getChipList = async () => {
-  const chips = await ChipService.getAllChips();
+  const chips = await ChipService.getAllChips(projectId.value);
   chipList.value = chips;
   if (chips.length) {
     selectedChip.value = chips[0].id;

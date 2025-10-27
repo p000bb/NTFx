@@ -32,6 +32,7 @@
   "help": "Help",
   "helpContent": "Scroll to zoom\nDrag with space\nCtrl+Z to undo\nCtrl+Y to redo",
   "upload": "Upload {name}",
+  "dragFile": "Drag file here or click upload",
   "statistics": "Statistics",
   "totalPins": "Total Pins",
   "utilizationRate": "Utilization",

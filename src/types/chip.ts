@@ -7,6 +7,10 @@ export interface Chip {
   pins: PinsType[];
 }
 
+export interface ChipDB extends Omit<Chip, "id"> {
+  id: number;
+  projectId: number;
+}
 export interface PinsType {
   Name: string;
   Type: string;
@@ -45,5 +49,19 @@ export interface Dropdown {
   optionWidth: number;
   fontSize: number;
   fontScale: number;
+}
+// #endregion
+
+// #region 项目信息
+export interface Project {
+  id?: number;
+  name: string;
+  remark: string;
+}
+
+export interface ProjectDB extends Omit<Project, "id"> {
+  id: number;
+  createTime: string;
+  updateTime: string;
 }
 // #endregion

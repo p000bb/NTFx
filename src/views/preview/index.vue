@@ -18,11 +18,16 @@
 </template>
 
 <script lang="ts" setup name="Preview">
-import { ref, watch } from "vue";
+import { onMounted, ref, watch } from "vue";
 import Content from "./components/content/index.vue";
 import Nav from "./components/nav/index.vue";
 import { useIsMobile } from "@/hooks/useHooks";
+import ProjectService from "@/services/projectService";
+import { useRoute } from "vue-router";
+import { useRouter } from "vue-router";
 
+const route = useRoute();
+const router = useRouter();
 const showNav = ref(true);
 const { isMobile } = useIsMobile();
 const mainRef = ref<HTMLElement | null>(null);
@@ -35,4 +40,17 @@ watch(
   },
   { immediate: true }
 );
+
+//
+const getProject = async () => {
+  const id = Number(route.params.id);
+  const project = await ProjectService.getProjectById(id);
+  if (!project) {
+    router.push("/404");
+  }
+};
+
+onMounted(() => {
+  getProject();
+});
 </script>

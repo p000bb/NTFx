@@ -2,5 +2,7 @@
   "title": "Chip Pin Visual Configuration",
   "search": "Search",
   "switchToRegisterMode": "Switch to Register Mode",
-  "switchToModuleMode": "Switch to Module Mode"
+  "switchToModuleMode": "Switch to Module Mode",
+  "optionSuccess": "Option success",
+  "optionError": "Option error"
 }

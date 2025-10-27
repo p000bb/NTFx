@@ -2,5 +2,7 @@
   "title": "芯片引脚可视化配置",
   "search": "搜索",
   "switchToRegisterMode": "切换到寄存器模式",
-  "switchToModuleMode": "切换到模块模式"
+  "switchToModuleMode": "切换到模块模式",
+  "optionSuccess": "操作成功",
+  "optionError": "操作失败"
 }

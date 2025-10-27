@@ -16,10 +16,18 @@ export const constantRoutes: RouteRecordRaw[] = [
   {
     path: "",
     component: Layout,
-    redirect: "/preview",
+    redirect: "/project",
     children: [
       {
-        path: "/preview",
+        path: "/project",
+        component: () => import("@/views/project/index.vue"),
+        name: "Project",
+        meta: {
+          title: t("menu.project")
+        }
+      },
+      {
+        path: "/preview/:id",
         component: () => import("@/views/preview/index.vue"),
         name: "Preview",
         meta: {

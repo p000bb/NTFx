@@ -11,11 +11,13 @@
         class="text-9xl font-bold text-red-500 dark:text-red-400 mb-4"
         style="text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1)"
       >
-        404
+        {{ t("error.404.notFound") }}
       </h1>
-      <h2 class="text-3xl font-semibold text-primary-800 dark:text-white mb-4">页面未找到</h2>
+      <h2 class="text-3xl font-semibold text-primary-800 dark:text-white mb-4">
+        {{ t("error.404.title") }}
+      </h2>
       <p class="text-lg text-primary-600 dark:text-primary-300 mb-8 max-w-md mx-auto">
-        抱歉，您访问的页面不存在或已被移除。
+        {{ t("error.404.description") }}
       </p>
 
       <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
@@ -24,25 +26,8 @@
           class="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 bg-red-500 hover:bg-red-600 text-white shadow-lg"
         >
           <span class="text-lg">🏠</span>
-          返回首页
+          {{ t("error.404.backHome") }}
         </router-link>
-        <button
-          @click="goBack"
-          class="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105 bg-primary-1000 hover:bg-primary-600 text-white"
-        >
-          返回首页
-          <svg
-            class="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            viewBox="0 0 24 24"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
       </div>
     </div>
 
@@ -65,17 +50,9 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from "vue-router";
+import { useI18n } from "@/hooks/useI18n";
 
-const router = useRouter();
-
-const goBack = () => {
-  if (window.history.length > 1) {
-    router.go(-1);
-  } else {
-    router.push("/");
-  }
-};
+const { t } = useI18n();
 
 const getRandomEmoji = () => {
   const emojis = ["🚀", "💻", "⚡", "🎯", "🌟", "💡", "🔧", "📱"];

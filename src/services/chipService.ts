@@ -1,4 +1,5 @@
-import { Chip } from "@/types/chip";
+import { Chip, ChipDB } from "@/types/chip";
+
 import { db } from "@/utils/database";
 
 export class ChipService {
@@ -22,7 +23,7 @@ export class ChipService {
   /**
    * 添加芯片
    */
-  static async addChip(chip: Chip): Promise<number> {
+  static async addChip(chip: ChipDB): Promise<number> {
     try {
       const id = await db.chips.add(chip);
       console.log("芯片添加成功:", id);
@@ -36,9 +37,9 @@ export class ChipService {
   /**
    * 获取所有芯片
    */
-  static async getAllChips(): Promise<Chip[]> {
+  static async getAllChips(projectId: number): Promise<Chip[]> {
     try {
-      return await db.chips.toArray();
+      return await db.chips.where("projectId").equals(projectId).toArray();
     } catch (error) {
       console.error("获取芯片列表失败:", error);
       throw error;
@@ -53,42 +54,6 @@ export class ChipService {
       return await db.chips.get(id);
     } catch (error) {
       console.error("获取芯片失败:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 根据名称搜索芯片
-   */
-  static async searchChipsByName(name: string): Promise<Chip[]> {
-    try {
-      return await db.chips.where("name").startsWithIgnoreCase(name).toArray();
-    } catch (error) {
-      console.error("搜索芯片失败:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 根据名称获取芯片（精确匹配）
-   */
-  static async getChipByName(name: string): Promise<Chip | undefined> {
-    try {
-      return await db.chips.where("name").equals(name).first();
-    } catch (error) {
-      console.error("根据名称获取芯片失败:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * 根据引脚数量搜索芯片
-   */
-  static async getChipsByPinNumber(pinNumber: number): Promise<Chip[]> {
-    try {
-      return await db.chips.where("pinNumber").equals(pinNumber).toArray();
-    } catch (error) {
-      console.error("根据引脚数量搜索芯片失败:", error);
       throw error;
     }
   }
@@ -121,10 +86,15 @@ export class ChipService {
   /**
    * 批量添加芯片
    */
-  static async batchAddChips(chips: Chip[]): Promise<void> {
+  static async batchAddChips(chips: Chip[], projectId: number): Promise<void> {
     try {
-      const cleanedChips = chips.map((chip) => this.cleanChipData(chip) as Chip);
-      await db.chips.bulkAdd(cleanedChips);
+      const cleanedChips = chips.map((chip) => this.cleanChipData(chip) as ChipDB);
+      await db.chips.bulkAdd(
+        cleanedChips.map((chip) => ({
+          ...chip,
+          projectId
+        }))
+      );
     } catch (error) {
       console.error("批量添加芯片失败:", error);
       throw error;

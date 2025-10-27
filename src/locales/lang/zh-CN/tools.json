@@ -32,6 +32,7 @@
   "help": "帮助",
   "helpContent": "滚轮缩放\n按住空格拖拽\nCtrl+Z 撤销\nCtrl+Y 重做",
   "upload": "上传 {name}",
+  "dragFile": "拖拽文件到此处或点击上传",
   "statistics": "统计信息",
   "totalPins": "总引脚数",
   "utilizationRate": "利用率",
