@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "./animation.scss";
+
+body {
+    @apply bg-primary-100;
+}
+
+.highlight {
+    animation: blink 0.5s linear 0s infinite alternate;
+}
