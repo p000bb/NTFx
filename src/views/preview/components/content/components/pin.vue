@@ -15,7 +15,9 @@
       @mouseenter="$emit('mouseenter')"
       @mouseleave="$emit('mouseleave')"
       @click="pinClick()"
-    />
+    >
+      <title>{{ pinTooltipText }}</title>
+    </rect>
     <!-- 编号排版和选项内容与之前一致 -->
     <template v-if="pin.side === 'top'">
       <text
@@ -193,6 +195,25 @@ const pinLabel = computed(() => {
   } else {
     return pin.name;
   }
+});
+
+const pinTooltipText = computed(() => {
+  const parts: string[] = [];
+
+  // 编号
+  parts.push(`编号: ${pin.index + 1}`);
+
+  // 类型
+  if (pin.Type) {
+    parts.push(`类型: ${pin.Type}`);
+  }
+
+  // I/O结构
+  if (pin.Io) {
+    parts.push(`I/O结构: ${pin.Io}`);
+  }
+
+  return parts.join("\n");
 });
 // #endregion
 

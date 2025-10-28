@@ -39,7 +39,7 @@
       <div
         v-for="project in filteredProjects"
         :key="project.id"
-        class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow hover:cursor-pointer"
+        class="bg-white rounded-lg shadow-sm hover:shadow-xl border border-gray-200 p-5 ease-in-out hover:-translate-y-1 transition-all duration-300 hover:cursor-pointer"
         @click="preview(project?.id)"
       >
         <div class="flex items-start justify-between mb-3">
