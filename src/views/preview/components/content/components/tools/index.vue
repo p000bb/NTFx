@@ -70,7 +70,7 @@
     <!-- 设置的弹窗 -->
     <SettingModal ref="settingModalRef" />
     <!-- 下载的弹窗 -->
-    <DownloadModal ref="downloadModalRef" />
+    <DownloadModal ref="downloadModalRef" :title="$t('tools.download')" />
     <!-- 信息面板（包含统计和冲突详情） -->
     <InformationPanel ref="informationPanelRef" />
   </div>

@@ -10,6 +10,8 @@
   "pdf": "PDF",
   "copy": "Copy",
   "code": "Code",
+  "excelDownloadSuccess": "Excel file has been generated successfully",
+  "excelDownloadFailed": "Failed to generate Excel file",
   "copySuccess": "Copy Success",
   "copyFailed": "Copy Failed",
   "chipConfig": "Chip Config",

@@ -163,6 +163,7 @@ const formatData = (data: any[]) => {
       Analog: string[];
       sortValue: string; // 添加排序值字段
       selectLabel: string;
+      Fail: string;
     }>
   }));
 
@@ -188,7 +189,8 @@ const formatData = (data: any[]) => {
           Digital: digitalArray,
           Analog: analogArray,
           sortValue: String(prefixValue), // 保存排序值
-          selectLabel: ""
+          selectLabel: "",
+          Fail: item.Fail || ""
         };
 
         // 添加到对应的pins数组中

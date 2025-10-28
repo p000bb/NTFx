@@ -31,6 +31,10 @@ import { isNil } from "lodash-es";
 import message from "@/utils/message";
 import jsPDF from "jspdf";
 import { useI18n } from "vue-i18n";
+import { useRoute } from "vue-router";
+import ChipService from "@/services/chipService";
+import ExcelJS from "exceljs";
+import ProjectService from "@/services/projectService";
 
 const { locale, t } = useI18n();
 const visible = ref<boolean>(false);
@@ -59,7 +63,9 @@ const getButtonList = () => {
     {
       key: "excel-download",
       label: `${t("tools.excel")} ${t("tools.download")}`,
-      onClick: async () => {}
+      onClick: async () => {
+        getExcel();
+      }
     },
     {
       key: "svg-download",
@@ -115,8 +121,201 @@ const getSvg = () => {
   });
 };
 
-// #region excel下载
+const route = useRoute();
+const projectId = computed(() => {
+  return Number(route.params.id);
+});
 
+// #region excel下载
+const getExcel = async () => {
+  try {
+    // 获取当前项目下所有芯片的引脚信息
+    const chips = await ChipService.getAllChips(projectId.value);
+    console.log(chips);
+    if (!chips || chips.length === 0) {
+      message.error("没有找到芯片数据");
+      return;
+    }
+
+    // 找到引脚数最多的芯片（如果多个相同，取最后一个）
+    let mainChip = chips[0];
+    let maxPinCount = mainChip.pinNumber;
+    for (let i = 1; i < chips.length; i++) {
+      if (chips[i].pinNumber >= maxPinCount) {
+        maxPinCount = chips[i].pinNumber;
+        mainChip = chips[i];
+      }
+    }
+
+    // 创建新的工作簿
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Sheet1");
+
+    // 定义基础样式
+    const baseStyle = {
+      font: { name: "Times New Roman", size: 10 },
+      alignment: { horizontal: "center", vertical: "middle" },
+      border: {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" }
+      }
+    };
+
+    // 定义表头样式
+    const headerStyle = {
+      font: { name: "Times New Roman", size: 10 },
+      alignment: { horizontal: "center", vertical: "middle" },
+      border: {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" }
+      }
+    };
+
+    let colIndex = 1;
+
+    // Package 列 - 合并从第1列到第chips.length列（第一行）
+    worksheet.getCell(1, colIndex).value = "Package";
+    const packageStartCol = colIndex;
+    for (let i = 0; i < chips.length; i++) {
+      worksheet.getCell(2, colIndex).value = chips[i].name;
+      worksheet.getColumn(colIndex).width = 12;
+      colIndex++;
+    }
+    const packageEndCol = colIndex - 1;
+    worksheet.mergeCells(1, packageStartCol, 1, packageEndCol);
+
+    // Pin name, Type, IO, Fail-safe - 每列从第1行合并到第2行
+    const pinColumns = ["Pin name", "Type", "IO", "Fail-safe"];
+    for (const colName of pinColumns) {
+      worksheet.getCell(1, colIndex).value = colName;
+      worksheet.mergeCells(1, colIndex, 2, colIndex);
+      worksheet.getColumn(colIndex).width = colName === "Pin name" ? 12 : 8;
+      colIndex++;
+    }
+
+    // Alternate functions - 合并2列（第一行）
+    const alternateFuncStartCol = colIndex;
+    worksheet.getCell(1, colIndex).value = "Alternate functions";
+    worksheet.getCell(2, colIndex).value = "Digital";
+    worksheet.getColumn(colIndex).width = 20;
+    colIndex++;
+    worksheet.getCell(2, colIndex).value = "Analog";
+    worksheet.getColumn(colIndex).width = 20;
+    const alternateFuncEndCol = colIndex;
+    worksheet.mergeCells(1, alternateFuncStartCol, 1, alternateFuncEndCol);
+
+    // Function selection - 合并chips.length列（第一行）
+    colIndex++;
+    const funcSelectionStartCol = colIndex;
+    worksheet.getCell(1, colIndex).value = "Function selection";
+    for (let i = 0; i < chips.length; i++) {
+      worksheet.getCell(2, colIndex).value = chips[i].name;
+      worksheet.getColumn(colIndex).width = 15;
+      colIndex++;
+    }
+    const funcSelectionEndCol = colIndex - 1;
+    worksheet.mergeCells(1, funcSelectionStartCol, 1, funcSelectionEndCol);
+
+    // 应用表头样式（第一行和第二行）
+    for (let row = 1; row <= 2; row++) {
+      for (let col = 1; col < colIndex; col++) {
+        worksheet.getCell(row, col).style = headerStyle as any;
+      }
+    }
+
+    // 构建数据行
+    let dataRowIndex = 3;
+    for (const mainPin of mainChip.pins) {
+      let currentCol = 1;
+
+      // Package 列的数据
+      for (const chip of chips) {
+        const pinIndex = chip.pins.findIndex((p) => p.Name === mainPin.Name);
+        worksheet.getCell(dataRowIndex, currentCol).value = pinIndex !== -1 ? pinIndex + 1 : "-";
+        worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
+        currentCol++;
+      }
+
+      // 固定列的数据（Pin name, Type, IO, Fail-safe）
+      worksheet.getCell(dataRowIndex, currentCol).value = mainPin.Name;
+      worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
+      currentCol++;
+
+      worksheet.getCell(dataRowIndex, currentCol).value = mainPin.Type || "";
+      worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
+      currentCol++;
+
+      worksheet.getCell(dataRowIndex, currentCol).value = mainPin.Io || "";
+      worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
+      currentCol++;
+
+      worksheet.getCell(dataRowIndex, currentCol).value = mainPin.Fail || "";
+      worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
+      currentCol++;
+
+      // Alternate functions
+      const digitalText = (mainPin.Digital || []).filter((item) => item && !["一", "-"].includes(item)).join("\r\n");
+      const analogText = (mainPin.Analog || []).filter((item) => item && !["一", "-"].includes(item)).join("\r\n");
+
+      // Digital 列 - 支持换行
+      const digitalCell = worksheet.getCell(dataRowIndex, currentCol);
+      digitalCell.value = digitalText;
+      digitalCell.style = { ...baseStyle, alignment: { ...baseStyle.alignment, wrapText: true } } as any;
+      currentCol++;
+
+      // Analog 列 - 支持换行
+      const analogCell = worksheet.getCell(dataRowIndex, currentCol);
+      analogCell.value = analogText;
+      analogCell.style = { ...baseStyle, alignment: { ...baseStyle.alignment, wrapText: true } } as any;
+      currentCol++;
+
+      // Function selection
+      for (const chip of chips) {
+        const pin = chip.pins.find((p) => p.Name === mainPin.Name);
+        let value = "";
+        if (pin && pin.selectLabel) {
+          value = pin.selectLabel;
+          // 如果selectLabel包含当前Pin name，去除当前Pin name
+          if (value.includes(mainPin.Name)) {
+            // 去掉 Pin name 前缀（包括点号）
+            const regex = new RegExp(`^${mainPin.Name}\\.?`, "i");
+            value = value.replace(regex, "");
+          } else {
+            // 如果不包含缩写，将"."替换成"_"
+            value = value.replace(/\./g, "_");
+          }
+        }
+        worksheet.getCell(dataRowIndex, currentCol).value = value;
+        worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
+        currentCol++;
+      }
+
+      dataRowIndex++;
+    }
+
+    // 下载文件
+    const { name: projectName } = await ProjectService.getProjectById(projectId.value);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${projectName}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(url);
+
+    message.success(t("tools.excelDownloadSuccess"));
+  } catch (error: any) {
+    console.error("生成 Excel 失败:", error);
+    message.error(error.message);
+  }
+};
 // #endregion
 
 // #region 获取svg代码

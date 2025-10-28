@@ -15,6 +15,7 @@ export interface PinsType {
   Name: string;
   Type: string;
   Io: string;
+  Fail: string;
   Digital: string[];
   Analog: string[];
   selectLabel: string;

@@ -8,7 +8,7 @@
       :height="chipSize"
       fill="#ececec"
       filter="url(#chip-shadow)"
-      stroke="#999"
+      stroke="#fff"
       stroke-width="2"
     />
     <!-- logo图片放大为芯片尺寸90%并居中，切换语言时强制刷新 -->
@@ -112,8 +112,9 @@ const chipConfigStore = useChipConfigStore();
 const { beginSide } = storeToRefs(chipConfigStore);
 // #endregion
 
+// #region 小圆点
 const dotRadius = computed(() => Math.max(pinLong, 10) / 2);
-const dotOffset = computed(() => 2 * dotRadius.value);
+const dotOffset = computed(() => 2.5 * dotRadius.value);
 const dotPos = computed(() => {
   switch (beginSide.value) {
     case "left":
@@ -137,6 +138,7 @@ const dotPos = computed(() => {
       return { cx: chipX + dotOffset.value, cy: chipY + dotOffset.value };
   }
 });
+// #endregion
 </script>
 
 <style scoped></style>

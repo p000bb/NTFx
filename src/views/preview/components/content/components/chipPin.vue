@@ -193,6 +193,7 @@ watch(
           Digital: pin.Digital,
           Analog: pin.Analog,
           Io: pin.Io,
+          Fail: pin.Fail,
           Type: pin.Type,
           selectLabel: pin.selectLabel
         }))
@@ -225,6 +226,7 @@ const restoreChip = () => {
       Analog: pin.Analog,
       Io: pin.Io,
       Type: pin.Type,
+      Fail: pin.Fail,
       conflict: false
     }))
   };
@@ -506,6 +508,9 @@ onMounted(() => {
   eventBus.on("svg:get", (cb: any) => {
     cb(svgRef.value);
   });
+  eventBus.on("chip:get", (cb: any) => {
+    cb(chipInfo.value);
+  });
   eventBus.on("restore:chip", async () => {
     resetView();
   });
@@ -535,6 +540,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   eventBus.off("svg:get");
+  eventBus.off("chip:get");
   eventBus.off("restore:chip");
   eventBus.off("check:conflict");
   eventBus.off("pin:update");

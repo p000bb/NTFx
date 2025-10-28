@@ -8,6 +8,8 @@
   "svg": "SVG",
   "png": "PNG",
   "pdf": "PDF",
+  "excelDownloadSuccess": "Excel文件已生成成功",
+  "excelDownloadFailed": "生成Excel文件失败",
   "copy": "复制",
   "code": "代码",
   "copySuccess": "复制成功",

@@ -1,6 +1,6 @@
 import { onBeforeUnmount } from "vue";
 import mitt, { type Handler } from "mitt";
-import { PinType } from "@/types/chip";
+import { Chip, PinType } from "@/types/chip";
 
 /**
  * 事件类型声明（支持泛型参数化）
@@ -17,6 +17,7 @@ export type AppEvents = {
   "check:conflict": (val: PinType[]) => void;
   "pin:update": { pinName: string; newLabel: string };
   "clear:all:conflicts": undefined;
+  "chip:get": (cb: (chips: Chip) => void) => void;
 };
 
 // mitt 实例全局唯一

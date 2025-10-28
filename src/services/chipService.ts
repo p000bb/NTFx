@@ -13,6 +13,7 @@ export class ChipService {
         Name: pin.Name,
         Type: pin.Type,
         Io: pin.Io,
+        Fail: pin.Fail,
         Digital: [...(pin.Digital || [])],
         Analog: [...(pin.Analog || [])],
         selectLabel: pin.selectLabel
