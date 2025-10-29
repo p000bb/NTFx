@@ -116,7 +116,7 @@ const expandStates = ref<Record<string, boolean>>({});
 // #endregion
 
 // #region 数据获取
-const getConflictData = () => {
+const getConflictData = async () => {
   eventBus.emit("check:conflict", (data: PinType[]) => {
     pins.value = data;
   });
@@ -187,7 +187,15 @@ const conflictGroups = computed(() => {
 // #region 替代方案获取
 const getAlternatives = (pin: PinType): string[] => {
   const alternatives: string[] = [];
-  const commonPins = [`${pin.name}.Input`, `${pin.name}.Output`, `${pin.name}.EXTI${pin.name.replace(/\D/g, "")}`];
+  let commonPins: string[] = [];
+  if (pin.group) {
+    const groupArray = pin.name.split("/");
+    groupArray.forEach((item) => {
+      commonPins.push(`${item}.Input`, `${item}.Output`, `${item}.EXTI${item.replace(/\D/g, "")}`);
+    });
+  } else {
+    commonPins = [`${pin.name}.Input`, `${pin.name}.Output`, `${pin.name}.EXTI${pin.name.replace(/\D/g, "")}`];
+  }
   // 获取该引脚的其他可选项（数字+模拟功能）
   const allOptions = [...commonPins, ...(pin.Digital || []), ...(pin.Analog || [])];
 

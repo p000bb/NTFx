@@ -131,21 +131,20 @@ const getExcel = async () => {
   try {
     // 获取当前项目下所有芯片的引脚信息
     const chips = await ChipService.getAllChips(projectId.value);
-    console.log(chips);
     if (!chips || chips.length === 0) {
       message.error("没有找到芯片数据");
       return;
     }
 
-    // 找到引脚数最多的芯片（如果多个相同，取最后一个）
-    let mainChip = chips[0];
-    let maxPinCount = mainChip.pinNumber;
-    for (let i = 1; i < chips.length; i++) {
-      if (chips[i].pinNumber >= maxPinCount) {
-        maxPinCount = chips[i].pinNumber;
-        mainChip = chips[i];
+    // 收集所有芯片中的所有唯一引脚名称
+    const allPinNames = new Set<string>();
+    for (const chip of chips) {
+      for (const pin of chip.pins) {
+        allPinNames.add(pin.Name);
       }
     }
+    // 将Set转换为排序后的数组
+    const sortedPinNames = Array.from(allPinNames).sort();
 
     // 创建新的工作簿
     const workbook = new ExcelJS.Workbook();
@@ -227,39 +226,53 @@ const getExcel = async () => {
       }
     }
 
-    // 构建数据行
+    // 构建数据行 - 遍历所有唯一的引脚名称
     let dataRowIndex = 3;
-    for (const mainPin of mainChip.pins) {
+    for (const pinName of sortedPinNames) {
       let currentCol = 1;
+
+      // 找到第一个包含此引脚的芯片数据（用于填充固定列）
+      let referencePin = null;
+      for (const chip of chips) {
+        const pin = chip.pins.find((p) => p.Name === pinName);
+        if (pin) {
+          referencePin = pin;
+          break;
+        }
+      }
 
       // Package 列的数据
       for (const chip of chips) {
-        const pinIndex = chip.pins.findIndex((p) => p.Name === mainPin.Name);
+        const pinIndex = chip.pins.findIndex((p) => p.Name === pinName);
         worksheet.getCell(dataRowIndex, currentCol).value = pinIndex !== -1 ? pinIndex + 1 : "-";
         worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
         currentCol++;
       }
 
       // 固定列的数据（Pin name, Type, IO, Fail-safe）
-      worksheet.getCell(dataRowIndex, currentCol).value = mainPin.Name;
+      worksheet.getCell(dataRowIndex, currentCol).value = pinName;
       worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
       currentCol++;
 
-      worksheet.getCell(dataRowIndex, currentCol).value = mainPin.Type || "";
+      worksheet.getCell(dataRowIndex, currentCol).value = referencePin?.Type || "";
       worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
       currentCol++;
 
-      worksheet.getCell(dataRowIndex, currentCol).value = mainPin.Io || "";
+      worksheet.getCell(dataRowIndex, currentCol).value = referencePin?.Io || "";
       worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
       currentCol++;
 
-      worksheet.getCell(dataRowIndex, currentCol).value = mainPin.Fail || "";
+      worksheet.getCell(dataRowIndex, currentCol).value = referencePin?.Fail || "";
       worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
       currentCol++;
 
       // Alternate functions
-      const digitalText = (mainPin.Digital || []).filter((item) => item && !["一", "-"].includes(item)).join("\r\n");
-      const analogText = (mainPin.Analog || []).filter((item) => item && !["一", "-"].includes(item)).join("\r\n");
+      const digitalText = (referencePin?.Digital || [])
+        .filter((item) => item && !["一", "-"].includes(item))
+        .join("\r\n");
+      const analogText = (referencePin?.Analog || [])
+        .filter((item) => item && !["一", "-"].includes(item))
+        .join("\r\n");
 
       // Digital 列 - 支持换行
       const digitalCell = worksheet.getCell(dataRowIndex, currentCol);
@@ -275,14 +288,14 @@ const getExcel = async () => {
 
       // Function selection
       for (const chip of chips) {
-        const pin = chip.pins.find((p) => p.Name === mainPin.Name);
+        const pin = chip.pins.find((p) => p.Name === pinName);
         let value = "";
         if (pin && pin.selectLabel) {
           value = pin.selectLabel;
           // 如果selectLabel包含当前Pin name，去除当前Pin name
-          if (value.includes(mainPin.Name)) {
+          if (value.includes(pinName)) {
             // 去掉 Pin name 前缀（包括点号）
-            const regex = new RegExp(`^${mainPin.Name}\\.?`, "i");
+            const regex = new RegExp(`^${pinName}\\.?`, "i");
             value = value.replace(regex, "");
           } else {
             // 如果不包含缩写，将"."替换成"_"

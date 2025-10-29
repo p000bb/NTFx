@@ -19,6 +19,7 @@ export interface PinsType {
   Digital: string[];
   Analog: string[];
   selectLabel: string;
+  sortValue: number;
 }
 // #endregion
 
@@ -28,7 +29,6 @@ export interface ChipInfo extends Omit<Chip, "pins"> {
 }
 
 export interface PinType extends Omit<PinsType, "Name"> {
-  index: number;
   name: string;
   x: number;
   y: number;
@@ -37,6 +37,7 @@ export interface PinType extends Omit<PinsType, "Name"> {
   side: "" | "top" | "bottom" | "left" | "right";
   selectLabel: string;
   conflict: boolean;
+  group: boolean;
 }
 // #endregion
 

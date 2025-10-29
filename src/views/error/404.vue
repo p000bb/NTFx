@@ -61,8 +61,6 @@ const getRandomEmoji = () => {
 </script>
 
 <style scoped lang="scss">
-// 所有样式都使用原子化类名，不再需要 @apply
-// 只保留必要的动画和响应式样式
 @keyframes float {
   0%,
   100% {

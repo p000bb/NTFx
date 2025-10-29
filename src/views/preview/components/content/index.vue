@@ -1,7 +1,7 @@
 <template>
   <div class="h-full">
-    <div class="flex items-center justify-between p-4 absolute top-0 left-0 right-0 w-full z-10">
-      <div class="flex items-center gap-2">
+    <div class="flex items-center justify-between p-4 absolute top-0 left-0 right-0 w-full z-10 pointer-events-none">
+      <div class="flex items-center gap-2 pointer-events-auto">
         <div class="w-36 relative" v-if="chipInfo">
           <input
             v-model="keyword"
@@ -24,18 +24,26 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-4 pointer-events-auto">
         <div>
           <!-- <FileSelect type="button" @fileParsed="fileParsed" @fileSelected="fileSelected" @error="error" /> -->
         </div>
         <LanguageSelect />
       </div>
     </div>
-    <div class="h-full">
-      <ChipPin v-model="chipInfo" :name="selectedChip" v-if="chipInfo" />
+    <div class="h-full relative">
+      <ChipPin v-model="chipInfo" v-if="chipInfo" />
       <div class="w-full h-full flex justify-center items-center" v-else>
         <div class="w-2/5">
           <FileSelect type="dropzone" @fileParsed="fileParsed" @fileSelected="fileSelected" @error="error" />
+        </div>
+      </div>
+
+      <!-- Loading 遮罩层 -->
+      <div v-if="loading" class="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="flex flex-col items-center gap-3">
+          <div class="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+          <p class="text-sm text-gray-600">{{ $t("common.loading") }}</p>
         </div>
       </div>
     </div>
@@ -63,15 +71,20 @@ const keyword = ref<string>("");
 const selectedChip = ref<number | undefined>(undefined);
 
 const chipInfo = ref<Chip | null>(null);
-
+const loading = ref<boolean>(false);
 const projectId = computed(() => {
   return Number(route.params.id);
 });
 
 watch(
   () => selectedChip.value,
-  (val) => {
-    chipInfo.value = chipList.value.find((chip) => chip.id === val) || null;
+  async (val) => {
+    if (val) {
+      const chip = await ChipService.getChipById(val);
+      if (chip) {
+        chipInfo.value = chip;
+      }
+    }
   }
 );
 
@@ -139,21 +152,20 @@ const error = (val: string) => {
 };
 
 const formatData = (data: any[]) => {
-  // 1. 过滤无用数据，Name和Type同时为空的排除掉
-  const filteredData = data.filter((item) => item.Name !== "" && item.Type !== "");
-
+  const filteredData = data;
   // 处理数据
   if (filteredData.length === 0) return;
 
-  // 2. 从第一项中获取到Name之前的所有keys
-  const allKeys = Object.keys(filteredData[0]);
-  const nameIndex = allKeys.indexOf("Name");
-  const prefixKeys = allKeys.slice(0, nameIndex); // 获取Name之前的所有keys
+  // 2. 从第一项中获取到所有package_开头的keys
+  const prefixKeys = Object.keys(filteredData[0]).filter((key) => key.startsWith("package_"));
 
-  // 3. 生成结果数组，每个prefix key对应一个对象
-  const result = prefixKeys.map((key) => ({
-    name: key,
-    package: key,
+  // 提取原始列名（去掉package_前缀）
+  const columnNames = prefixKeys.map((key) => key.replace("package_", ""));
+
+  // 3. 生成结果数组，每个columnName对应一个对象
+  const result = columnNames.map((name) => ({
+    name: name,
+    package: name,
     pinNumber: 0,
     pins: [] as Array<{
       Name: string;
@@ -161,9 +173,9 @@ const formatData = (data: any[]) => {
       Io: string;
       Digital: string[];
       Analog: string[];
-      sortValue: string; // 添加排序值字段
-      selectLabel: string;
       Fail: string;
+      selectLabel: string;
+      sortValue: number; // 添加排序值字段
     }>
   }));
 
@@ -171,26 +183,47 @@ const formatData = (data: any[]) => {
   filteredData.forEach((item) => {
     // 遍历每个prefix key
     prefixKeys.forEach((prefixKey, index) => {
-      const prefixValue = item[prefixKey];
+      const packageValue = item[prefixKey];
+      const columnName = columnNames[index];
+      const selectKey = `select_${columnName}`;
+      const selectValue = item[selectKey];
 
-      // 如果当前行的prefix key值为有效数字，则添加到对应的pins中
-      if (prefixValue && !isNaN(Number(prefixValue))) {
+      // 处理Package列的值：去除括号内容并转换为数字
+      let processedValue = null;
+      if (packageValue) {
+        // 去除括号及括号内容，例如 "28(1)" -> "28"
+        const cleanValue = String(packageValue)
+          .replace(/\([^)]*\)/g, "")
+          .trim();
+        // 转换为数字
+        const numericValue = Number(cleanValue);
+        if (!isNaN(numericValue)) {
+          processedValue = numericValue;
+        }
+      }
+
+      // 如果处理后的值为有效数字，则添加到对应的pins中
+      if (processedValue !== null) {
         // 处理Digital字段，按\r\n分割
-        const digitalArray = item.Digital ? item.Digital.split("\r\n").filter((d: string) => d.trim() !== "") : [];
+        const digitalArray = item.Digital
+          ? item.Digital.split("\r\n").filter((d: string) => d.trim() !== "" && d.trim() !== "-" && d.trim() !== "一")
+          : [];
 
         // 处理Analog字段，按\r\n分割
-        const analogArray = item.Analog ? item.Analog.split("\r\n").filter((a: string) => a.trim() !== "") : [];
+        const analogArray = item.Analog
+          ? item.Analog.split("\r\n").filter((a: string) => a.trim() !== "" && a.trim() !== "-" && a.trim() !== "一")
+          : [];
 
-        // 创建pin对象，包含排序值
+        // 创建pin对象，包含排序值和selectLabel
         const pinData = {
-          Name: item.Name,
+          Name: item["Pin name"],
           Type: item.Type,
-          Io: item.Io || "",
+          Io: item.IO || "",
           Digital: digitalArray,
           Analog: analogArray,
-          sortValue: String(prefixValue), // 保存排序值
-          selectLabel: "",
-          Fail: item.Fail || ""
+          sortValue: Number(processedValue), // 保存排序值
+          Fail: item["Fail-safe"] || "",
+          selectLabel: selectValue || "" // 添加selectLabel字段
         };
 
         // 添加到对应的pins数组中
@@ -212,13 +245,13 @@ const formatData = (data: any[]) => {
       }
 
       // 否则按字符串排序
-      return a.sortValue.localeCompare(b.sortValue);
+      return a.sortValue - b.sortValue;
     });
   });
 
   // 6. 为每个对象添加pinNumber字段
   result.forEach((item) => {
-    item.pinNumber = item.pins.length;
+    item.pinNumber = new Set(item.pins.map((pin) => pin.sortValue)).size;
   });
 
   return result;
@@ -226,22 +259,22 @@ const formatData = (data: any[]) => {
 // #endregion
 
 // #region 获取芯片列表
+const selectList = ref<{ label: string; value: number }[]>([]);
 const getChipList = async () => {
+  loading.value = true;
   const chips = await ChipService.getAllChips(projectId.value);
   chipList.value = chips;
+  loading.value = false;
   if (chips.length) {
     selectedChip.value = chips[0].id;
+    selectList.value = chips.map((item) => {
+      return {
+        label: item.name,
+        value: item.id || 0
+      };
+    });
   }
 };
-
-const selectList = computed(() => {
-  return chipList.value.map((item) => {
-    return {
-      label: item.name,
-      value: item.id
-    };
-  });
-});
 // #endregion
 
 onMounted(() => {

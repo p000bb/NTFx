@@ -25,7 +25,7 @@
         dominant-baseline="middle"
         :font-size="fontSize"
         fill="#222"
-        style="font-family: &quot;Consolas&quot;, monospace; pointer-events: none"
+        class="pointer-events-none font-mono"
       >
         {{ option.label }}
       </text>
@@ -39,7 +39,9 @@ import { onClickOutside } from "@vueuse/core";
 import { ChipInfo } from "@/types/chip";
 import { confirm } from "@/utils/confirm";
 import { usePinConfigStore } from "@/store/modules/pinConfig";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 const props = defineProps<{
   visible: boolean;
   options: { label: string; type: string }[];
@@ -98,7 +100,6 @@ const curPinIndex = computed(() => {
   // pin.selectLabel与当前modelValue相等的那个pin即为自己
   return props.chipInfo?.pins.findIndex((pin) => pin.selectLabel === props.modelValue && pin.selectLabel !== "");
 });
-// #endregion
 
 const conflictFill = (idx: number) => {
   const label = props.options[idx].label;
@@ -123,10 +124,10 @@ function select(idx: number) {
     const { showConflictAlert } = usePinConfigStore();
     if (showConflictAlert) {
       confirm({
-        title: "提示",
-        content: `该引脚与已选引脚冲突，冲突引脚：<span class="text-red-500">${conflictContent}</span>，确定要选择该引脚吗？`,
-        okText: "确定",
-        cancelText: "取消"
+        title: t("common.tip"),
+        content: `${t("chip.conflictTip", { text: `<span class="text-red-500">${conflictContent}</span>` })}`,
+        okText: t("common.confirm"),
+        cancelText: t("common.cancel")
       }).then(() => {
         emit("update:modelValue", props.options[idx].label);
         emit("blur");

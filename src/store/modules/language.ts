@@ -1,5 +1,10 @@
+import "dayjs/locale/zh-cn";
+import "dayjs/locale/en";
+
+import dayjs from "dayjs";
 import { defineStore } from "pinia";
 import { useStorage } from "@vueuse/core";
+import { watch } from "vue";
 
 // 检测浏览器语言并返回支持的语言
 function getBrowserLanguage(): string {
@@ -32,6 +37,15 @@ function getBrowserLanguage(): string {
 export const useLanguageStore = defineStore("language", () => {
   // 设置语言，检测浏览器语言作为默认值
   const language = useStorage("language", getBrowserLanguage());
+
+  watch(
+    language,
+    (val) => {
+      dayjs.locale(val === "zh-CN" ? "zh-cn" : "en");
+    },
+    { immediate: true }
+  );
+
   /**
    * 切换语言
    *

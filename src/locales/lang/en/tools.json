@@ -67,5 +67,6 @@
   "replaceSuccess": "Pin {pinName} has been updated to {label}",
   "clearSuccess": "All conflict pin configurations have been cleared",
   "showMore": "More",
-  "showLess": "Show Less"
+  "showLess": "Show Less",
+  "downloadConflict": "There are conflict pins, do you want to continue downloading?"
 }

@@ -85,7 +85,10 @@ import DownloadModal from "./downloadModal.vue";
 import InformationPanel from "./informationPanel.vue";
 import { eventBus } from "@/hooks/eventBus";
 import message from "@/utils/message";
+import { confirm } from "@/utils/confirm";
+import { useI18n } from "vue-i18n";
 
+const { t } = useI18n();
 //#region 全屏逻辑（VueUse）
 const props = defineProps<{ mainEl: HTMLElement | null }>();
 const mainElRef = toRef(props, "mainEl");
@@ -121,13 +124,24 @@ const onDownload = async () => {
       conflict = val.some((item) => item.conflict);
     });
   }
-  if (conflict) {
-    message.error("存在冲突的引脚");
-  } else {
+
+  const downFn = () => {
     onRestore();
     nextTick(() => {
       downloadModalRef.value?.open();
     });
+  };
+  if (conflict) {
+    await confirm({
+      title: t("common.tip"),
+      content: t("tools.downloadConflict"),
+      okText: t("common.confirm"),
+      cancelText: t("common.cancel")
+    });
+
+    downFn();
+  } else {
+    downFn();
   }
 };
 //#endregion

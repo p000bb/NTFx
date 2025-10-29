@@ -40,7 +40,7 @@
           :chip-package="chipInfo?.package || ''"
         />
         <!-- 引脚循环用pin组件渲染，动态数量和全部参数 -->
-        <template v-for="(pin, idx) in pins" :key="pin.index">
+        <template v-for="(pin, idx) in pins" :key="pin.sortValue">
           <Pin
             :pin="pin"
             :chip-size="chipSize"
@@ -48,7 +48,7 @@
             :hover="hoverPin === idx"
             @mouseenter="hoverPin = idx"
             @mouseleave="hoverPin = null"
-            @click="showDropdown(idx)"
+            @click="showDropdown(pin)"
             :font-scale="pinFontScale"
             :select-font-scale="pinFontScale * 1.1"
           />
@@ -88,12 +88,13 @@ import PinSelect from "./pinSelect.vue";
 import Main from "./main.vue";
 import Pin from "./pin.vue";
 import { eventBus } from "@/hooks/eventBus";
-import type { Chip, Dropdown, ChipInfo } from "@/types/chip";
-import { formatPinLabel } from "@/utils";
+import type { Chip, Dropdown, ChipInfo, PinType } from "@/types/chip";
+import { formatPinLabel, getDotContent } from "@/utils";
 import { useChipConfigStore } from "@/store/modules/chipConfig";
 import { storeToRefs } from "pinia";
-import { useMagicKeys } from "@vueuse/core";
+import { useMagicKeys, useThrottleFn } from "@vueuse/core";
 import { useManualRefHistory } from "@vueuse/core";
+import { cloneDeep } from "lodash-es";
 
 // #region 状态/引用定义
 const mainRatio = computed(() => getMainRatio(pinCount.value));
@@ -106,11 +107,87 @@ let chipSize = 0,
   chipX = 0,
   chipY = 0,
   pinLong = 0;
-const pins = computed(() => chipInfo.value?.pins || []);
+
+const pins = ref<PinType[]>([]);
+
+// 创建pins的函数 - 性能优化版本
+function createPins() {
+  if (!chipInfo.value?.pins) {
+    pins.value = [];
+    return;
+  }
+
+  const pinsArray = chipInfo.value.pins;
+  const result: PinType[] = [];
+
+  // 使用Map进行分组，性能更好
+  const groupedPins = new Map<string, typeof pinsArray>();
+
+  // 按 sortValue 分组
+  for (const pin of pinsArray) {
+    const sortValue = pin.sortValue.toString();
+    if (!groupedPins.has(sortValue)) {
+      groupedPins.set(sortValue, []);
+    }
+    groupedPins.get(sortValue)!.push(pin);
+  }
+
+  // 处理每个分组
+  for (const pinGroup of groupedPins.values()) {
+    if (pinGroup.length === 1) {
+      // 单个引脚，直接添加
+      result.push(pinGroup[0]);
+      continue;
+    }
+
+    // 多个引脚合并 - 优化版本
+    const firstPin = pinGroup[0];
+
+    // 找到第一个有selectLabel值的引脚
+    let selectedPin = firstPin;
+    for (const pin of pinGroup) {
+      if (pin.selectLabel && pin.selectLabel.trim() !== "") {
+        selectedPin = pin;
+        break;
+      }
+    }
+
+    // 预分配数组大小，避免动态扩容
+    const digitalArray: string[] = [];
+    const analogArray: string[] = [];
+    const nameArray: string[] = [];
+
+    // 一次性遍历完成所有合并操作
+    for (const pin of pinGroup) {
+      nameArray.push(pin.name);
+
+      if (pin.Digital) {
+        digitalArray.push(...pin.Digital);
+      }
+
+      if (pin.Analog) {
+        analogArray.push(...pin.Analog);
+      }
+    }
+
+    const mergedPin: PinType = {
+      ...firstPin,
+      name: nameArray.join("/"),
+      selectLabel: selectedPin.selectLabel,
+      Digital: digitalArray,
+      Analog: analogArray,
+      group: true
+    };
+
+    result.push(mergedPin);
+  }
+
+  pins.value = cloneDeep(result);
+}
 // #endregion
 
 // #region 核心props、响应式数据
-const props = defineProps<{ modelValue: Chip | null; name: number | undefined }>();
+const props = defineProps<{ modelValue: Chip | null }>();
 const pinCount = computed(() => chipInfo.value?.pinNumber || 48);
 const pinsPerSide = computed(() => pinCount.value / 4);
 const emit = defineEmits<{
@@ -182,24 +259,30 @@ const onMouseUp = () => {
 // #region 监听chipInfo变化
 const chipInfo = ref<ChipInfo>();
 
+// 创建节流函数，500ms间隔，只执行最后一次
+const throttledEmit = useThrottleFn((val: ChipInfo) => {
+  const data = {
+    ...val,
+    pins: val.pins.map((pin) => ({
+      Name: pin.name,
+      Digital: pin.Digital,
+      Analog: pin.Analog,
+      Io: pin.Io,
+      Fail: pin.Fail,
+      Type: pin.Type,
+      selectLabel: pin.selectLabel,
+      sortValue: pin.sortValue
+    }))
+  };
+
+  emit("update:modelValue", data);
+}, 500);
+
 watch(
   () => chipInfo.value,
   (val) => {
     if (val) {
-      const data = {
-        ...val,
-        pins: val.pins.map((pin) => ({
-          Name: pin.name,
-          Digital: pin.Digital,
-          Analog: pin.Analog,
-          Io: pin.Io,
-          Fail: pin.Fail,
-          Type: pin.Type,
-          selectLabel: pin.selectLabel
-        }))
-      };
-
-      emit("update:modelValue", data);
+      throttledEmit(val);
     }
   },
   { deep: true }
@@ -214,26 +297,24 @@ const restoreChip = () => {
     package: props.modelValue.package,
     pinNumber: props.modelValue.pinNumber,
     pins: props.modelValue.pins.map((pin) => ({
-      index: 0,
+      ...pin,
       name: pin.Name,
+      conflict: false,
+      group: false,
       x: 0,
       y: 0,
       width: 0,
       height: 0,
-      side: "",
-      selectLabel: pin.selectLabel,
-      Digital: pin.Digital,
-      Analog: pin.Analog,
-      Io: pin.Io,
-      Type: pin.Type,
-      Fail: pin.Fail,
-      conflict: false
+      side: ""
     }))
   };
+
+  // 创建pins
+  createPins();
 };
 
 watch(
-  () => props.name,
+  () => props.modelValue?.name,
   (val) => {
     if (val) {
       restoreChip();
@@ -260,7 +341,6 @@ function getPinFontScale(pinCount: number) {
 // #endregion
 
 // #region updateLayout（布局）& pins计算
-
 function updateLayout(): void {
   if (!width.value || !height.value) return;
   const vmin = Math.min(width.value, height.value);
@@ -271,43 +351,67 @@ function updateLayout(): void {
   pinLong = chipSize / N;
   const pinShort = pinLong * 4;
   const pinsArr = chipInfo.value?.pins || [];
+
   const sides = ["bottom", "right", "top", "left"];
   const startIdx = sides.indexOf(beginSide.value || "bottom");
   const sidesOrdered: ("bottom" | "right" | "top" | "left")[] = [];
   for (let i = 0; i < 4; i++) {
     sidesOrdered.push(sides[(startIdx + i) % 4] as "bottom" | "right" | "top" | "left");
   }
-  let pinCounter = 0;
-  for (let sideIdx = 0; sideIdx < 4; sideIdx++) {
-    const side = sidesOrdered[sideIdx];
-    for (let i = 0; i < N; i++, pinCounter++) {
-      if (!pinsArr[pinCounter]) continue;
-      pinsArr[pinCounter].index = pinCounter;
-      pinsArr[pinCounter].name = formatPinLabel(pinsArr[pinCounter].name);
-      pinsArr[pinCounter].side = side;
-      if (side === "bottom") {
-        pinsArr[pinCounter].x = chipX + i * pinLong;
-        pinsArr[pinCounter].y = chipY + chipSize;
-        pinsArr[pinCounter].width = pinLong;
-        pinsArr[pinCounter].height = pinShort;
-      } else if (side === "right") {
-        pinsArr[pinCounter].x = chipX + chipSize;
-        pinsArr[pinCounter].y = chipY + chipSize - (i + 1) * pinLong;
-        pinsArr[pinCounter].width = pinShort;
-        pinsArr[pinCounter].height = pinLong;
-      } else if (side === "top") {
-        pinsArr[pinCounter].x = chipX + chipSize - (i + 1) * pinLong;
-        pinsArr[pinCounter].y = chipY - pinShort;
-        pinsArr[pinCounter].width = pinLong;
-        pinsArr[pinCounter].height = pinShort;
-      } else if (side === "left") {
-        pinsArr[pinCounter].x = chipX - pinShort;
-        pinsArr[pinCounter].y = chipY + i * pinLong;
-        pinsArr[pinCounter].width = pinShort;
-        pinsArr[pinCounter].height = pinLong;
-      }
+
+  // 遍历所有引脚，根据 sortValue 计算位置
+  for (const pin of pinsArr) {
+    const sortValueNum = Number(pin.sortValue) || 0;
+    if (sortValueNum === 0) continue;
+
+    // 物理位置（从 0 开始）
+    const pos = sortValueNum - 1;
+    // 边索引
+    const sideIdx = Math.floor(pos / N);
+    // 边上的位置
+    const posInSide = pos % N;
+
+    pin.name = formatPinLabel(pin.name);
+    pin.side = sidesOrdered[sideIdx];
+
+    const side = pin.side;
+    if (side === "bottom") {
+      pin.x = chipX + posInSide * pinLong;
+      pin.y = chipY + chipSize;
+      pin.width = pinLong;
+      pin.height = pinShort;
+    } else if (side === "right") {
+      pin.x = chipX + chipSize;
+      pin.y = chipY + chipSize - (posInSide + 1) * pinLong;
+      pin.width = pinShort;
+      pin.height = pinLong;
+    } else if (side === "top") {
+      pin.x = chipX + chipSize - (posInSide + 1) * pinLong;
+      pin.y = chipY - pinShort;
+      pin.width = pinLong;
+      pin.height = pinShort;
+    } else if (side === "left") {
+      pin.x = chipX - pinShort;
+      pin.y = chipY + posInSide * pinLong;
+      pin.width = pinShort;
+      pin.height = pinLong;
     }
   }
+
+  // 同步更新pins中组合引脚的位置信息 - 使用Map优化性能
+  const sortValueMap = new Map();
+  pinsArr.forEach((pin) => sortValueMap.set(pin.sortValue.toString(), pin));
+
+  pins.value.forEach((pin) => {
+    const originalPin = sortValueMap.get(pin.sortValue.toString());
+    if (originalPin) {
+      pin.x = originalPin.x;
+      pin.y = originalPin.y;
+      pin.width = originalPin.width;
+      pin.height = originalPin.height;
+      pin.side = originalPin.side;
+    }
+  });
 }
 // #endregion
 
@@ -355,12 +459,14 @@ const dropdown = reactive<Dropdown>({
 });
 
 const dropdownOptions = computed(() => {
-  const idx = dropdown.index;
-  const chipData = chipInfo.value?.pins || [];
-  const pin = chipData[idx];
+  const pin = pins.value[dropdown.index];
+
   if (!pin) return [];
   const type = (pin.Type || "").toUpperCase();
   const options: any[] = [];
+
+  // 获取原始引脚组（用于生成带前缀的选项）
+  const originalPins = chipInfo.value?.pins.filter((p) => p.sortValue === pin.sortValue) || [];
 
   // 固定顺序及显隐规则
   const COMMON_OPTIONS = [
@@ -382,36 +488,65 @@ const dropdownOptions = computed(() => {
     {
       key: "EXTI",
       show: (type: string) => ["I/O", "I", "O"].includes(type),
-      label: (name: string) => `${name}.EXTI${pin.name.replace(/\D/g, "")}`
+      label: (name: string) => `${name}.EXTI${name.replace(/\D/g, "")}`
     }
   ];
-  for (const opt of COMMON_OPTIONS) {
-    if (opt.show(type)) options.push({ label: opt.label(pin.name), type: "common" });
+
+  // 为每个原始引脚生成Common选项
+  for (const originalPin of originalPins) {
+    for (const opt of COMMON_OPTIONS) {
+      if (opt.show(type)) {
+        options.push({
+          label: opt.label(originalPin.name),
+          type: "common"
+        });
+      }
+    }
   }
 
-  const digital = Array.isArray(pin.Digital) ? pin.Digital : [];
-  const analog = Array.isArray(pin.Analog) ? pin.Analog : [];
-  options.push(
-    ...digital
-      .filter((item: string) => item && !["一", "-"].includes(item))
-      .map((item: string) => ({ label: item.replace(/_/g, "."), type: "digital" })),
-    ...analog
-      .filter((item: string) => item && !["一", "-"].includes(item))
-      .map((item: string) => ({ label: item.replace(/_/g, "."), type: "analog" }))
-  );
+  // 为每个原始引脚生成Digital选项
+  for (const originalPin of originalPins) {
+    const digital = Array.isArray(originalPin.Digital) ? originalPin.Digital : [];
+    digital
+      .filter((item: string) => item && item.length > 1)
+      .forEach((item: string) => {
+        // 只显示功能名，不显示前缀
+        const label = item.replace(/_/g, ".");
+        options.push({
+          label,
+          type: "digital"
+        });
+      });
+  }
+
+  // 为每个原始引脚生成Analog选项
+  for (const originalPin of originalPins) {
+    const analog = Array.isArray(originalPin.Analog) ? originalPin.Analog : [];
+    analog
+      .filter((item: string) => item && item.length > 1)
+      .forEach((item: string) => {
+        // 只显示功能名，不显示前缀
+        const label = item.replace(/_/g, ".");
+        options.push({
+          label,
+          type: "analog"
+        });
+      });
+  }
+
   return options;
 });
 // #endregion
 
 // #region showDropdown、下拉弹窗定位逻辑
-function showDropdown(idx: number): void {
-  if (!pins.value[idx]) {
+function showDropdown(data: any): void {
+  if (!data) {
     hideDropdown();
     return;
   }
   dropdown.visible = true;
-  dropdown.index = idx;
-  const pin = pins.value[idx];
+  dropdown.index = data.sortValue - 1;
+  const pin = data;
   let optionWidth = pin.width * 1.5;
   let optionHeight = pin.height;
   if (pin.side === "top" || pin.side === "bottom") {
@@ -447,16 +582,78 @@ function showDropdown(idx: number): void {
   dropdown.optionWidth = optionWidth;
   dropdown.fontSize = fontSize;
   dropdown.fontScale = fontScale;
-  selectedPins.value = selectedPins.value.map((_, i) => i === idx);
+  selectedPins.value = selectedPins.value.map((_, i) => i === data.sortValue - 1);
 }
 
 function onPinSelectChange(val: string): void {
-  if (pins.value[dropdown.index]) {
-    pins.value[dropdown.index].selectLabel = val;
-    commit();
-  }
+  const currentPin = pins.value[dropdown.index];
+  if (!currentPin) return;
 
+  // 更新pins中的selectLabel（展示数据）
+  currentPin.selectLabel = val;
+  // 同步更新chipInfo中对应的原始引脚
+  updateChipInfoFromPins(currentPin, val);
+  commit();
   checkConflict();
+}
+
+// 新增函数：根据pins的变化更新chipInfo
+function updateChipInfoFromPins(currentPin: any, val: string): void {
+  if (!chipInfo.value) return;
+
+  // 获取原始引脚组
+  const originalPins = chipInfo.value.pins.filter((p) => p.sortValue === currentPin.sortValue);
+
+  if (originalPins.length === 1) {
+    // 单个引脚，直接更新
+    originalPins[0].selectLabel = val;
+  } else {
+    // 组合引脚，需要找到对应的逻辑引脚
+    // 检查是否为Common功能（Reset, Input, Output, EXTI）
+    const isCommonFunction =
+      val.includes("Reset") || val.includes("Input") || val.includes("Output") || val.includes("EXTI");
+
+    // 先清除该物理引脚下所有逻辑引脚的selectLabel
+    originalPins.forEach((pin) => {
+      pin.selectLabel = "";
+    });
+
+    if (isCommonFunction) {
+      // Common功能，提取引脚名前缀
+      const pinNameMatch = val.match(/^([^.]+)\./);
+      if (pinNameMatch) {
+        const targetPinName = pinNameMatch[1];
+        const targetPin = originalPins.find((p) => p.name === targetPinName);
+        if (targetPin) {
+          targetPin.selectLabel = val;
+        }
+      }
+    } else {
+      // Digital/Analog功能，遍历所有原始引脚找到包含此功能的引脚
+      let foundPin = null;
+      for (const pin of originalPins) {
+        const digital = Array.isArray(pin.Digital) ? pin.Digital : [];
+        const analog = Array.isArray(pin.Analog) ? pin.Analog : [];
+
+        // 检查Digital功能 - 完全相等匹配
+        const digitalMatch = digital.some((d) => d.replace(/_/g, ".") === val);
+        // 检查Analog功能 - 完全相等匹配
+        const analogMatch = analog.some((a) => a.replace(/_/g, ".") === val);
+
+        if (digitalMatch || analogMatch) {
+          foundPin = pin;
+          break;
+        }
+      }
+
+      if (foundPin) {
+        foundPin.selectLabel = val;
+      } else {
+        // 如果还是找不到，更新第一个引脚（fallback）
+        originalPins[0].selectLabel = val;
+      }
+    }
+  }
 }
 
 function hideDropdown(): void {
@@ -466,35 +663,32 @@ function hideDropdown(): void {
 // #endregion
 
 // #region 引脚冲突检测
-function getDotContent(str: string) {
-  const match = str.match(/[^.]+$/);
-  return match ? match[0] : "";
-}
-
 function checkConflict(): void {
-  const items = pins.value.map((pin) => {
-    if (pin.selectLabel.includes("EXTI")) {
-      return getDotContent(pin.selectLabel);
-    } else {
-      return pin.selectLabel;
-    }
-  });
-
   // 重置所有conflict
   pins.value.forEach((pin) => {
     pin.conflict = false;
   });
 
-  for (let i = 0; i < pins.value.length; i++) {
-    if (!items[i]) continue;
-    for (let j = i + 1; j < pins.value.length; j++) {
-      if (!items[j]) continue;
-      if (items[i] === items[j]) {
-        pins.value[i].conflict = true;
-        pins.value[j].conflict = true;
-      }
+  // 使用Map统计冲突 - O(n)复杂度优化
+  const conflictMap = new Map<string, number[]>();
+
+  pins.value.forEach((pin, index) => {
+    if (!pin.selectLabel) return;
+
+    const key = pin.selectLabel.includes("EXTI") ? getDotContent(pin.selectLabel) : pin.selectLabel;
+
+    if (!conflictMap.has(key)) {
+      conflictMap.set(key, []);
     }
-  }
+    conflictMap.get(key)!.push(index);
+  });
+
+  // 只处理有冲突的组
+  conflictMap.forEach((indices) => {
+    if (indices.length > 1) {
+      indices.forEach((index) => (pins.value[index].conflict = true));
+    }
+  });
 }
 // #endregion
 
@@ -522,8 +716,10 @@ onMounted(() => {
     const pin = pins.value.find((p) => p.name === data.pinName);
     if (pin) {
       pin.selectLabel = data.newLabel;
-      checkConflict();
+      // 同步更新chipInfo
+      updateChipInfoFromPins(pin, data.newLabel);
       commit();
+      checkConflict();
     }
   });
   // 清除所有冲突
@@ -531,10 +727,12 @@ onMounted(() => {
     pins.value.forEach((pin) => {
       if (pin.conflict) {
         pin.selectLabel = "";
+        // 同步更新chipInfo
+        updateChipInfoFromPins(pin, "");
       }
     });
-    checkConflict();
     commit();
+    checkConflict();
   });
 });
 
@@ -568,8 +766,8 @@ watch(
 // #endregion
 
 // #region 历史记录功能实现
-const { undo, redo, commit, canUndo, canRedo, clear } = useManualRefHistory(chipInfo, {
-  clone: (v) => JSON.parse(JSON.stringify(v))
+const { undo, redo, commit, canUndo, canRedo, clear } = useManualRefHistory(pins, {
+  clone: (v) => cloneDeep(v)
 });
 
 const keys = useMagicKeys();
@@ -598,13 +796,4 @@ watch(keys["ctrl_y"], (v) => {
 // #endregion
 </script>
 
-<style scoped>
-.v-enter-active,
-.v-leave-active {
-  transition: opacity 0.5s ease;
-}
-.v-enter-from,
-.v-leave-to {
-  opacity: 0;
-}
-</style>
+<style scoped></style>

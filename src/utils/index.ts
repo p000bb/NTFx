@@ -1,3 +1,6 @@
+import ChipService from "@/services/chipService";
+import { PinsType } from "@/types/chip";
+
 /**
  * 格式化引脚名称
  * @param name 引脚名称
@@ -22,4 +25,25 @@ export const formatPinLabel = (name: string = ""): string => {
 export const getExtiSuffix = (label: string = ""): string => {
   const idx = label.indexOf("EXTI");
   return idx >= 0 ? label.slice(idx) : "";
+};
+
+/**
+ * 获取选中的芯片引脚
+ * @returns 选中的芯片引脚
+ */
+export const getSelectedChipPins = async (): Promise<PinsType[]> => {
+  const selectDom = document.querySelector(".select-chip") as HTMLSelectElement;
+  const id = Number(selectDom.value);
+  const chip = await ChipService.getChipById(id);
+  return chip?.pins || [];
+};
+
+/**
+ * 获取引脚名称中的点内容
+ * @param str 引脚名称
+ * @returns 点内容
+ */
+export const getDotContent = (str: string): string => {
+  const match = str.match(/[^.]+$/);
+  return match ? match[0] : "";
 };

@@ -4,5 +4,9 @@
   "switchToRegisterMode": "Switch to Register Mode",
   "switchToModuleMode": "Switch to Module Mode",
   "optionSuccess": "Option success",
-  "optionError": "Option error"
+  "optionError": "Option error",
+  "loading": "Loading...",
+  "confirm": "Confirm",
+  "cancel": "Cancel",
+  "tip": "Tip"
 }

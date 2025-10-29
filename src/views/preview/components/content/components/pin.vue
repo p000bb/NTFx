@@ -201,7 +201,7 @@ const pinTooltipText = computed(() => {
   const parts: string[] = [];
 
   // 编号
-  parts.push(`编号: ${pin.index + 1}`);
+  parts.push(`编号: ${pin.sortValue}`);
 
   // 类型
   if (pin.Type) {

@@ -67,5 +67,6 @@
   "replaceSuccess": "已将 {pinName} 更新为 {label}",
   "clearSuccess": "已清除所有冲突引脚配置",
   "showMore": "更多",
-  "showLess": "收起"
+  "showLess": "收起",
+  "downloadConflict": "存在冲突的引脚，是否继续下载？"
 }

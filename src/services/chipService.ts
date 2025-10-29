@@ -16,7 +16,8 @@ export class ChipService {
         Fail: pin.Fail,
         Digital: [...(pin.Digital || [])],
         Analog: [...(pin.Analog || [])],
-        selectLabel: pin.selectLabel
+        selectLabel: pin.selectLabel,
+        sortValue: pin.sortValue
       }))
     };
   }

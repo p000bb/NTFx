@@ -92,7 +92,7 @@
 
 <script setup lang="ts">
 // #region 导入
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { Plus, Search, Trash2, FolderOpen, Edit } from "lucide-vue-next";
 import { confirm } from "@/utils/confirm";
 import DataDialog from "./dataDialog.vue";
@@ -100,28 +100,15 @@ import { useI18n } from "vue-i18n";
 import ProjectService from "@/services/projectService";
 import message from "@/utils/message";
 import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
-import "dayjs/locale/zh-cn";
-import "dayjs/locale/en";
 import { ProjectDB } from "@/types/chip";
 import { useRouter } from "vue-router";
+import { useTitle } from "@vueuse/core";
 
-// dayjs 配置
-dayjs.extend(relativeTime);
-// #endregion
+const { t } = useI18n();
 
-// #region I18n
-const { t, locale } = useI18n();
+const pageTitle = computed(() => t("project.title"));
 
-// 设置 dayjs 语言
-watch(
-  locale,
-  (newLocale) => {
-    dayjs.locale(newLocale === "zh-CN" ? "zh-cn" : "en");
-  },
-  { immediate: true }
-);
-// #endregion
+useTitle(pageTitle);
 
 // #region 响应式数据
 const searchKeyword = ref("");
@@ -190,16 +177,42 @@ const handleDelete = async (project: ProjectDB) => {
 
 // 格式化日期
 const formatDate = (timestamp: string): string => {
+  // @ts-ignore
   return dayjs(timestamp).fromNow();
 };
 // #endregion
 
 // #region 路由
 const router = useRouter();
+// 存储已打开的窗口
+const openedWindows = new Map<number, Window>();
+
 const preview = (id: number | undefined) => {
   if (id) {
     const routeData = router.resolve(`/preview/${id}`);
-    window.open(routeData.href, "_blank");
+
+    // 检查是否已经有该项目的窗口打开
+    const existingWindow = openedWindows.get(id);
+
+    if (existingWindow && !existingWindow.closed) {
+      // 窗口已存在且未关闭，聚焦到该窗口
+      existingWindow.focus();
+    } else {
+      // 打开新窗口
+      const newWindow = window.open(routeData.href, `preview_${id}`);
+      if (newWindow) {
+        // 记录新打开的窗口
+        openedWindows.set(id, newWindow);
+
+        // 监听窗口关闭事件，从Map中移除
+        const checkClosed = setInterval(() => {
+          if (newWindow.closed) {
+            openedWindows.delete(id);
+            clearInterval(checkClosed);
+          }
+        }, 500);
+      }
+    }
   }
 };
 // #endregion

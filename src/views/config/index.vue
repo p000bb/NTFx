@@ -9,19 +9,19 @@ import FileSelect from "@/components/FileSelect/index.vue";
 
 const fileParsed = (data: any[]) => {
   const filteredData = data;
-  console.log(filteredData);
   // 处理数据
   if (filteredData.length === 0) return;
 
-  // 2. 从第一项中获取到Name之前的所有keys（只获取Package列）
-  const prefixKeys = Object.keys(filteredData[0]).filter(
-    (key) => !["Analog", "Digital", "Fail-safe", "Function selection", "IO", "Pin name", "Type"].includes(key)
-  );
+  // 2. 从第一项中获取到所有package_开头的keys
+  const prefixKeys = Object.keys(filteredData[0]).filter((key) => key.startsWith("package_"));
 
-  // 3. 生成结果数组，每个prefix key对应一个对象
-  const result = prefixKeys.map((key) => ({
-    name: key,
-    package: key,
+  // 提取原始列名（去掉package_前缀）
+  const columnNames = prefixKeys.map((key) => key.replace("package_", ""));
+
+  // 3. 生成结果数组，每个columnName对应一个对象
+  const result = columnNames.map((name) => ({
+    name: name,
+    package: name,
     pinNumber: 0,
     pins: [] as Array<{
       Name: string;
@@ -29,7 +29,9 @@ const fileParsed = (data: any[]) => {
       Io: string;
       Digital: string[];
       Analog: string[];
-      sortValue: string; // 添加排序值字段
+      Fail: string;
+      selectLabel: string;
+      sortValue: number; // 添加排序值字段
     }>
   }));
 
@@ -37,13 +39,16 @@ const fileParsed = (data: any[]) => {
   filteredData.forEach((item) => {
     // 遍历每个prefix key
     prefixKeys.forEach((prefixKey, index) => {
-      const prefixValue = item[prefixKey];
+      const packageValue = item[prefixKey];
+      const columnName = columnNames[index];
+      const selectKey = `select_${columnName}`;
+      const selectValue = item[selectKey];
 
       // 处理Package列的值：去除括号内容并转换为数字
       let processedValue = null;
-      if (prefixValue) {
+      if (packageValue) {
         // 去除括号及括号内容，例如 "28(1)" -> "28"
-        const cleanValue = String(prefixValue)
+        const cleanValue = String(packageValue)
           .replace(/\([^)]*\)/g, "")
           .trim();
         // 转换为数字
@@ -56,19 +61,25 @@ const fileParsed = (data: any[]) => {
       // 如果处理后的值为有效数字，则添加到对应的pins中
       if (processedValue !== null) {
         // 处理Digital字段，按\r\n分割
-        const digitalArray = item.Digital ? item.Digital.split("\r\n").filter((d) => d.trim() !== "") : [];
+        const digitalArray = item.Digital
+          ? item.Digital.split("\r\n").filter((d: string) => d.trim() !== "" && d.trim() !== "-" && d.trim() !== "一")
+          : [];
 
         // 处理Analog字段，按\r\n分割
-        const analogArray = item.Analog ? item.Analog.split("\r\n").filter((a) => a.trim() !== "") : [];
+        const analogArray = item.Analog
+          ? item.Analog.split("\r\n").filter((a: string) => a.trim() !== "" && a.trim() !== "-" && a.trim() !== "一")
+          : [];
 
-        // 创建pin对象，包含排序值
+        // 创建pin对象，包含排序值和selectLabel
         const pinData = {
           Name: item["Pin name"],
           Type: item.Type,
           Io: item.IO || "",
           Digital: digitalArray,
           Analog: analogArray,
-          sortValue: String(processedValue) // 保存排序值
+          sortValue: Number(processedValue), // 保存排序值
+          Fail: item["Fail-safe"] || "",
+          selectLabel: selectValue || "" // 添加selectLabel字段
         };
 
         // 添加到对应的pins数组中
@@ -90,7 +101,7 @@ const fileParsed = (data: any[]) => {
       }
 
       // 否则按字符串排序
-      return a.sortValue.localeCompare(b.sortValue);
+      return aNum - bNum;
     });
   });
 
