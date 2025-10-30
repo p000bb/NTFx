@@ -241,10 +241,10 @@ const getExcel = async () => {
         }
       }
 
-      // Package 列的数据
+      // Package 列的数据 - 使用sortValue而不是索引
       for (const chip of chips) {
-        const pinIndex = chip.pins.findIndex((p) => p.Name === pinName);
-        worksheet.getCell(dataRowIndex, currentCol).value = pinIndex !== -1 ? pinIndex + 1 : "-";
+        const pin = chip.pins.find((p) => p.Name === pinName);
+        worksheet.getCell(dataRowIndex, currentCol).value = pin && pin.sortValue ? pin.sortValue : "-";
         worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
         currentCol++;
       }

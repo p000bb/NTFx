@@ -27,7 +27,7 @@
         fill="#222"
         class="pointer-events-none font-mono"
       >
-        {{ option.label }}
+        {{ formatPinLabel(option.label) }}
       </text>
     </g>
   </svg>
@@ -40,6 +40,7 @@ import { ChipInfo } from "@/types/chip";
 import { confirm } from "@/utils/confirm";
 import { usePinConfigStore } from "@/store/modules/pinConfig";
 import { useI18n } from "vue-i18n";
+import { formatPinLabel } from "@/utils";
 
 const { t } = useI18n();
 const props = defineProps<{

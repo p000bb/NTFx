@@ -133,6 +133,7 @@ const fileParsed = async (data: any[]) => {
       return;
     }
 
+    console.log(formattedChips);
     // 使用批量添加方法
     await ChipService.batchAddChips(formattedChips, projectId.value);
 
@@ -186,7 +187,7 @@ const formatData = (data: any[]) => {
       const packageValue = item[prefixKey];
       const columnName = columnNames[index];
       const selectKey = `select_${columnName}`;
-      const selectValue = item[selectKey];
+      const selectValue = item[selectKey].replace(/\_/g, ".");
 
       // 处理Package列的值：去除括号内容并转换为数字
       let processedValue = null;

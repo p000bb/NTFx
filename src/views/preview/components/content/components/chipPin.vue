@@ -50,7 +50,6 @@
             @mouseleave="hoverPin = null"
             @click="showDropdown(pin)"
             :font-scale="pinFontScale"
-            :select-font-scale="pinFontScale * 1.1"
           />
         </template>
         <Transition>
@@ -371,7 +370,6 @@ function updateLayout(): void {
     // 边上的位置
     const posInSide = pos % N;
 
-    pin.name = formatPinLabel(pin.name);
     pin.side = sidesOrdered[sideIdx];
 
     const side = pin.side;
