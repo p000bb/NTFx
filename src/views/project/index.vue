@@ -103,6 +103,7 @@ import dayjs from "dayjs";
 import { ProjectDB } from "@/types/chip";
 import { useRouter } from "vue-router";
 import { useTitle } from "@vueuse/core";
+import ChipService from "@/services/chipService";
 
 const { t } = useI18n();
 
@@ -167,6 +168,7 @@ const handleDelete = async (project: ProjectDB) => {
     });
 
     await ProjectService.deleteProject(project.id);
+    await ChipService.deleteChipsByProjectId(project.id);
     message.success(t("project.deleteSuccess") || "删除成功");
     // 重新加载数据
     await getDataList();

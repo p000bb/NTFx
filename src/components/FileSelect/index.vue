@@ -3,6 +3,7 @@
     <!-- 按钮形式 -->
     <div v-if="props.type === 'button'">
       <button
+        type="button"
         @click="triggerFileInput"
         :disabled="!!isParsing"
         class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 flex items-center justify-center text-sm"
@@ -58,6 +59,7 @@ import { ref } from "vue";
 import { Loader2, Upload } from "lucide-vue-next";
 import { isString } from "lodash-es";
 import * as XLSX from "xlsx";
+import { useI18n } from "vue-i18n";
 
 // #region Props 和 Events
 const props = withDefaults(
@@ -406,6 +408,8 @@ const handleFileSelect = (event: Event) => {
   if (file) {
     processFile(file);
   }
+
+  target.value = "";
 };
 // #endregion
 

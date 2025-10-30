@@ -74,6 +74,22 @@ export class ChipService {
   }
 
   /**
+   * 更新芯片
+   */
+  static async batchUpdateChips(chips: Chip[]): Promise<void> {
+    try {
+      // 清洗数据、确保都有 id
+      const toUpdate = chips.filter((chip) => chip.id).map((chip) => this.cleanChipData(chip) as ChipDB);
+
+      // bulkPut 会自动根据 id 更新/插入
+      await db.chips.bulkPut(toUpdate);
+    } catch (error) {
+      console.error("批量更新芯片失败:", error);
+      throw error;
+    }
+  }
+
+  /**
    * 删除芯片
    */
   static async deleteChip(id: number): Promise<void> {
@@ -85,6 +101,17 @@ export class ChipService {
     }
   }
 
+  /**
+   * 根据项目ID删除芯片
+   */
+  static async deleteChipsByProjectId(projectId: number): Promise<void> {
+    try {
+      await db.chips.where("projectId").equals(projectId).delete();
+    } catch (error) {
+      console.error("删除芯片失败:", error);
+      throw error;
+    }
+  }
   /**
    * 批量添加芯片
    */

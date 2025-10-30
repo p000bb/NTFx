@@ -37,7 +37,6 @@
           :width="width"
           :height="height"
           :chip-name="chipInfo?.name || ''"
-          :chip-package="chipInfo?.package || ''"
         />
         <!-- 引脚循环用pin组件渲染，动态数量和全部参数 -->
         <template v-for="(pin, idx) in pins" :key="pin.sortValue">
@@ -293,7 +292,6 @@ const restoreChip = () => {
   chipInfo.value = {
     id: props.modelValue.id,
     name: props.modelValue.name,
-    package: props.modelValue.package,
     pinNumber: props.modelValue.pinNumber,
     pins: props.modelValue.pins.map((pin) => ({
       ...pin,
@@ -313,7 +311,7 @@ const restoreChip = () => {
 };
 
 watch(
-  () => props.modelValue?.name,
+  () => props.modelValue?.id,
   (val) => {
     if (val) {
       restoreChip();
@@ -772,7 +770,7 @@ const keys = useMagicKeys();
 
 // 清空历史记录 watch
 watch(
-  () => chipInfo.value?.name,
+  () => chipInfo.value?.id,
   () => {
     clear();
   }

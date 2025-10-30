@@ -8,5 +8,6 @@
   "loading": "Loading...",
   "confirm": "Confirm",
   "cancel": "Cancel",
-  "tip": "Tip"
+  "tip": "Tip",
+  "placeholder": "Please enter"
 }

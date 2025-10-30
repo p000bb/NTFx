@@ -2,7 +2,6 @@
 export interface Chip {
   id?: number;
   name: string;
-  package: string;
   pinNumber: number;
   pins: PinsType[];
 }

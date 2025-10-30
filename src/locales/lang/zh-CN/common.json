@@ -8,5 +8,6 @@
   "loading": "加载中...",
   "confirm": "确 定",
   "cancel": "取 消",
-  "tip": "提 示"
+  "tip": "提 示",
+  "placeholder": "请输入"
 }

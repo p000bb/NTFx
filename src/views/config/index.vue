@@ -21,7 +21,6 @@ const fileParsed = (data: any[]) => {
   // 3. 生成结果数组，每个columnName对应一个对象
   const result = columnNames.map((name) => ({
     name: name,
-    package: name,
     pinNumber: 0,
     pins: [] as Array<{
       Name: string;
