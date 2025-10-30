@@ -11,7 +11,7 @@
           />
           <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-400" />
         </div>
-        <div class="w-50">
+        <div class="w-48">
           <select
             v-if="selectList.length"
             v-model="selectedChip"
@@ -133,13 +133,13 @@ const fileParsed = async (data: any[]) => {
       return;
     }
 
-    console.log(formattedChips);
     // 使用批量添加方法
     await ChipService.batchAddChips(formattedChips, projectId.value);
 
     const chips = await ChipService.getAllChips(projectId.value);
     chipList.value = chips;
     if (chips.length) {
+      await getChipList();
       selectedChip.value = chips[0].id;
     }
   } catch (error) {
@@ -187,7 +187,18 @@ const formatData = (data: any[]) => {
       const packageValue = item[prefixKey];
       const columnName = columnNames[index];
       const selectKey = `select_${columnName}`;
-      const selectValue = item[selectKey].replace(/\_/g, ".");
+      // 根据需求处理selectValue
+      let selectValue = "";
+      const selectKeyValue = item[selectKey];
+
+      // 检查是否等于"put"或"Output"，或者包含EXTIx（x为任意数字）
+      if (selectKeyValue === "Input" || selectKeyValue === "Output" || /EXTI\d+/.test(selectKeyValue)) {
+        // 使用Pin name + . + selectKey的值
+        selectValue = item["Pin name"] + "." + selectKeyValue;
+      } else {
+        // 其他情况保持原来的逻辑
+        selectValue = selectKeyValue.replace(/\_/g, ".");
+      }
 
       // 处理Package列的值：去除括号内容并转换为数字
       let processedValue = null;

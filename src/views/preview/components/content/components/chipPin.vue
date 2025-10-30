@@ -82,13 +82,13 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, onMounted, onUnmounted, watch, computed, watchEffect, provide } from "vue";
+import { ref, reactive, onMounted, onUnmounted, watch, computed, watchEffect, provide, onBeforeUnmount } from "vue";
 import PinSelect from "./pinSelect.vue";
 import Main from "./main.vue";
 import Pin from "./pin.vue";
 import { eventBus } from "@/hooks/eventBus";
 import type { Chip, Dropdown, ChipInfo, PinType } from "@/types/chip";
-import { formatPinLabel, getDotContent } from "@/utils";
+import { getDotContent } from "@/utils";
 import { useChipConfigStore } from "@/store/modules/chipConfig";
 import { storeToRefs } from "pinia";
 import { useMagicKeys, useThrottleFn } from "@vueuse/core";

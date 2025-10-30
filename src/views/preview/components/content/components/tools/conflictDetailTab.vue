@@ -39,9 +39,9 @@
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <div class="w-3 h-3 rounded-full bg-red-500"></div>
-                  <span class="font-semibold text-gray-900">{{ pin.name }}</span>
+                  <span class="font-semibold text-gray-900">{{ formatPinLabel(pin.name) }}</span>
                 </div>
-                <span class="text-sm text-gray-600">{{ pin.selectLabel }}</span>
+                <span class="text-sm text-gray-600">{{ formatPinLabel(pin.selectLabel) }}</span>
               </div>
               <!-- 建议的替代方案 -->
               <div v-if="pin.alternatives && pin.alternatives.length > 0" class="mt-2 ml-5">
@@ -53,7 +53,7 @@
                     :class="getButtonClass(alt, pin)"
                     @click="applyAlternative(pin, alt)"
                   >
-                    {{ alt }}
+                    {{ formatPinLabel(alt) }}
                   </button>
                   <button
                     v-if="pin.allAlternatives && pin.allAlternatives.length > 3"
@@ -107,6 +107,7 @@ import message from "@/utils/message";
 import { confirm } from "@/utils/confirm";
 import { getExtiSuffix } from "@/utils";
 import { useMagicKeys } from "@vueuse/core";
+import { formatPinLabel } from "@/utils";
 
 // #region 初始化
 const { t, locale } = useI18n();
@@ -282,8 +283,8 @@ const applyAlternative = async (pin: PinType, alternative: string) => {
     // 构建HTML格式的确认内容
     const content =
       locale.value === "zh-CN"
-        ? `确定要将引脚 <span class="text-red-600 font-bold">${pin.name}</span> 的功能从 <span class="text-red-600 font-bold">${pin.selectLabel}</span> 替换为 <span class="text-green-600 font-bold">${alternative}</span> 吗？`
-        : `Are you sure you want to replace pin <span class="text-red-600 font-bold">${pin.name}</span> function from <span class="text-red-600 font-bold">${pin.selectLabel}</span> to <span class="text-green-600 font-bold">${alternative}</span>?`;
+        ? `确定要将引脚 <span class="text-red-600 font-bold">${formatPinLabel(pin.name)}</span> 的功能从 <span class="text-red-600 font-bold">${formatPinLabel(pin.selectLabel)}</span> 替换为 <span class="text-green-600 font-bold">${formatPinLabel(alternative)}</span> 吗？`
+        : `Are you sure you want to replace pin <span class="text-red-600 font-bold">${formatPinLabel(pin.name)}</span> function from <span class="text-red-600 font-bold">${formatPinLabel(pin.selectLabel)}</span> to <span class="text-green-600 font-bold">${formatPinLabel(alternative)}</span>?`;
 
     await confirm({
       title: t("tools.confirmReplace"),

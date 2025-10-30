@@ -134,6 +134,7 @@ const pins = ref<PinType[]>([]);
 const getPinsData = () => {
   eventBus.emit("check:conflict", (data: PinType[]) => {
     pins.value = data;
+    console.log(pins.value);
   });
 };
 
@@ -149,8 +150,20 @@ const statistics = computed(() => {
   const functionCounts: Record<string, number> = {};
   pins.value.forEach((pin) => {
     if (pin.selectLabel) {
-      // 提取功能名称（例如：USART1.TX 提取为 USART1）
-      const funcName = pin.selectLabel.split(".")[0];
+      let funcName = "";
+
+      // 根据selectLabel内容进行分类统计
+      if (pin.selectLabel.includes(".Input")) {
+        funcName = "Input";
+      } else if (pin.selectLabel.includes(".Output")) {
+        funcName = "Output";
+      } else if (pin.selectLabel.includes(".EXTI")) {
+        funcName = "EXTI";
+      } else {
+        // 其他情况按照.分割读取前面的一段
+        funcName = pin.selectLabel.split(".")[0];
+      }
+
       if (funcName) {
         functionCounts[funcName] = (functionCounts[funcName] || 0) + 1;
       }
