@@ -46,10 +46,15 @@
           </div>
 
           <!-- 解析后的芯片列表 -->
-          <div v-if="chipList.length" class="space-y-1.5 max-h-[250px] overflow-y-auto">
+          <TransitionGroup
+            v-if="chipList.length"
+            name="list"
+            tag="div"
+            class="space-y-1.5 max-h-[250px] overflow-y-auto"
+          >
             <div
               v-for="(chip, index) in chipList"
-              :key="chip.id || index"
+              :key="chip.id"
               class="flex items-center gap-2 p-2 bg-gray-50 border border-gray-200 rounded-md"
             >
               <input
@@ -71,7 +76,7 @@
                 <Trash2 class="w-4 h-4" />
               </button>
             </div>
-          </div>
+          </TransitionGroup>
         </div>
         <!-- #endregion -->
 
@@ -171,10 +176,7 @@ const handleSubmit = async () => {
 
     const oldList = chipList.value.filter((item) => item.id);
     const newList = chipList.value.filter((item) => !item.id);
-
-    if (oldList.length) {
-      await ChipService.batchUpdateChips(oldList);
-    }
+    await ChipService.batchUpdateChips(oldList, Number(projectId));
     if (newList.length) {
       await ChipService.batchAddChips(newList, Number(projectId));
     }
@@ -225,17 +227,9 @@ const confirmRemove = async (chip: Chip & { index: number }) => {
       okText: t("common.confirm"),
       cancelText: t("common.cancel")
     });
-
-    if (chip?.id) {
-      await ChipService.deleteChip(chip.id);
-    } else {
-      chipList.value.splice(chip.index, 1);
-    }
+    chipList.value.splice(chip.index, 1);
   } catch {}
 };
-// #endregion
-
-// #region 芯片名修改watch自动保存
 // #endregion
 
 // #region 暴露方法

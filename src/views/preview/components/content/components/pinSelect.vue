@@ -1,5 +1,57 @@
 <template>
-  <svg ref="svgRef" :x="x" :y="y" :width="optionWidth + 6" :height="options.length * optionHeight + 6">
+  <foreignObject
+    v-if="options.length > maxItems"
+    ref="svgRef"
+    :x="x"
+    :y="y"
+    :width="optionWidth + 6"
+    :height="maxVisibleHeight"
+  >
+    <div
+      ref="scrollContainerRef"
+      class="pin-select-scroll"
+      :style="{
+        width: optionWidth + 6 + 'px',
+        maxHeight: maxVisibleHeight + 'px',
+        overflowY: 'auto',
+        overflowX: 'hidden'
+      }"
+    >
+      <svg :width="optionWidth + 6" :height="totalHeight">
+        <g
+          v-for="(option, i) in options"
+          :key="option.label"
+          @mouseenter="hoverIdx = i"
+          @mouseleave="hoverIdx = -1"
+          @mousedown.stop.prevent="select(i)"
+          class="cursor-pointer"
+        >
+          <rect
+            :x="3"
+            :y="3 + i * optionHeight"
+            :width="optionWidth"
+            :height="optionHeight"
+            :fill="rectFill(i)"
+            :stroke="getOptionStroke(option.type)"
+            stroke-width="1.1"
+            rx="0"
+          />
+          <text
+            :x="3 + optionWidth / 2"
+            :y="3 + i * optionHeight + optionHeight / 2"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            :font-size="fontSize"
+            fill="#222"
+            class="pointer-events-none font-mono"
+          >
+            {{ formatPinLabel(option.label) }}
+          </text>
+        </g>
+      </svg>
+    </div>
+  </foreignObject>
+  <svg v-else ref="svgRef" :x="x" :y="y" :width="optionWidth + 6" :height="options.length * optionHeight + 6">
     <g
       v-for="(option, i) in options"
       :key="option.label"
@@ -34,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, watchEffect, onMounted, onUnmounted } from "vue";
 import { onClickOutside } from "@vueuse/core";
 import { ChipInfo } from "@/types/chip";
 import { confirm } from "@/utils/confirm";
@@ -58,12 +110,19 @@ const props = defineProps<{
 }>();
 const emit = defineEmits(["update:modelValue", "blur", "update:visible", "update:selected"]);
 const hoverIdx = ref(-1);
-const svgRef = ref<SVGSVGElement | null>(null);
+const svgRef = ref<SVGSVGElement | HTMLElement | null>(null);
+const scrollContainerRef = ref<HTMLElement | null>(null);
 
 // #region UI参数相关计算
 const optionHeight = computed(() => props.optionHeight || 28);
 const optionWidth = computed(() => props.optionWidth || 62);
 const fontSize = computed(() => props.fontSize || 16);
+const maxItems = 10;
+const maxVisibleHeight = computed(() => {
+  const itemCount = Math.min(props.options.length, maxItems);
+  return itemCount * optionHeight.value + 6;
+});
+const totalHeight = computed(() => props.options.length * optionHeight.value + 6);
 // #endregion
 
 // #region 选项高亮与选择逻辑
@@ -191,6 +250,27 @@ onClickOutside(svgRef, () => {
 });
 // #endregion
 
+// #region wheel 事件处理（阻止冒泡到父容器）
+const handleWheel = (e: WheelEvent) => {
+  // 只阻止事件冒泡，不阻止默认滚动行为
+  e.stopPropagation();
+};
+
+onMounted(() => {
+  // 使用 passive 事件监听器，只阻止冒泡而不阻止默认行为
+  if (scrollContainerRef.value) {
+    scrollContainerRef.value.addEventListener("wheel", handleWheel, { passive: true });
+  }
+});
+
+onUnmounted(() => {
+  // 清理事件监听器
+  if (scrollContainerRef.value) {
+    scrollContainerRef.value.removeEventListener("wheel", handleWheel);
+  }
+});
+// #endregion
+
 // #region 引脚冲突判断
 const rectFill = (i: number) => {
   // 悬浮
@@ -211,3 +291,27 @@ const rectFill = (i: number) => {
 };
 // #endregion
 </script>
+
+<style scoped>
+.pin-select-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.pin-select-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pin-select-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.pin-select-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.pin-select-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+</style>

@@ -549,7 +549,10 @@ function showDropdown(data: any): void {
     optionWidth = pin.height * 1.5;
     optionHeight = pin.width;
   }
-  const selectHeight = dropdownOptions.value.length * optionHeight;
+  // 最多显示10项，计算实际显示高度
+  const maxItems = 10;
+  const visibleItemCount = Math.min(dropdownOptions.value.length, maxItems);
+  const selectHeight = visibleItemCount * optionHeight + 6; // +6 是边框偏移 (3 * 2)
   const fontSize = chipSize * 0.047 * pinFontScale.value;
   const fontScale = pinFontScale.value;
   let x = pin.x;

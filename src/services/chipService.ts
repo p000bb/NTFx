@@ -74,15 +74,47 @@ export class ChipService {
   }
 
   /**
-   * 更新芯片
+   * 批量更新芯片
+   * 逻辑：
+   * 1. 根据 projectId 获取该项目下的所有芯片
+   * 2. 比对数据库中的 chips 和传入的 chips（比对 id）
+   * 3. 如果数据库中存在的芯片在传入数组中不存在，删除该芯片
+   * 4. 传入数组中存在的芯片进行更新（不考虑新增）
    */
-  static async batchUpdateChips(chips: Chip[]): Promise<void> {
+  static async batchUpdateChips(chips: Chip[], projectId: number): Promise<void> {
     try {
-      // 清洗数据、确保都有 id
-      const toUpdate = chips.filter((chip) => chip.id).map((chip) => this.cleanChipData(chip) as ChipDB);
+      // 获取该项目下的所有芯片
+      const existingChips = await db.chips.where("projectId").equals(projectId).toArray();
+      const existingChipIds = new Set<number>(existingChips.map((chip) => chip.id));
 
-      // bulkPut 会自动根据 id 更新/插入
-      await db.chips.bulkPut(toUpdate);
+      // 获取传入芯片的 id 集合（只取有 id 的）
+      const incomingChipIds = new Set<number>(chips.filter((chip) => chip.id).map((chip) => chip.id! as number));
+
+      // 找出需要删除的芯片（在数据库中存在但在传入数组中不存在）
+      const chipsToDelete = Array.from(existingChipIds).filter((id) => !incomingChipIds.has(id));
+
+      // 删除不存在的芯片
+      if (chipsToDelete.length > 0) {
+        await db.chips.bulkDelete(chipsToDelete);
+        console.log(`删除了 ${chipsToDelete.length} 个芯片`);
+      }
+
+      // 更新传入数组中存在的芯片（不会存在新增，因为都已经有 id）
+      if (chips.length > 0) {
+        // 清洗数据、确保都有 id 和 projectId
+        const toUpdate = chips
+          .filter((chip) => chip.id)
+          .map((chip) => {
+            const cleaned = this.cleanChipData(chip) as ChipDB;
+            // 确保 projectId 存在
+            cleaned.projectId = projectId;
+            return cleaned;
+          });
+
+        // bulkPut 会自动根据 id 更新
+        await db.chips.bulkPut(toUpdate);
+        console.log(`更新了 ${toUpdate.length} 个芯片`);
+      }
     } catch (error) {
       console.error("批量更新芯片失败:", error);
       throw error;

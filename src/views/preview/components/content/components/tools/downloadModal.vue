@@ -136,15 +136,120 @@ const getExcel = async () => {
       return;
     }
 
-    // 收集所有芯片中的所有唯一引脚名称
-    const allPinNames = new Set<string>();
-    for (const chip of chips) {
-      for (const pin of chip.pins) {
-        allPinNames.add(pin.Name);
-      }
+    // 收集所有引脚，带上芯片信息和sortValue
+    interface PinRecord {
+      pinName: string;
+      chipIndex: number;
+      chipName: string;
+      sortValue: number;
+      pin: any;
     }
-    // 将Set转换为排序后的数组
-    const sortedPinNames = Array.from(allPinNames).sort();
+
+    const pinRecords: PinRecord[] = [];
+    chips.forEach((chip, chipIndex) => {
+      chip.pins.forEach((pin) => {
+        pinRecords.push({
+          pinName: pin.Name,
+          chipIndex,
+          chipName: chip.name,
+          sortValue: pin.sortValue || 0,
+          pin
+        });
+      });
+    });
+
+    // 分组逻辑：
+    // 1. 同一芯片内的同名但sortValue不同的引脚 → 必须分开行（每个作为独立组）
+    // 2. 不同芯片间的同名引脚 → 合并到一行（但要排除同一芯片内同名不同sortValue的情况）
+
+    // 先检查每个芯片内是否有同名但sortValue不同的引脚
+    const sameChipDuplicateMap = new Map<number, Set<string>>(); // chipIndex -> Set<pinName>
+    chips.forEach((chip, chipIndex) => {
+      const pinNameMap = new Map<string, number[]>(); // pinName -> sortValue[]
+      chip.pins.forEach((pin) => {
+        if (!pinNameMap.has(pin.Name)) {
+          pinNameMap.set(pin.Name, []);
+        }
+        pinNameMap.get(pin.Name)!.push(pin.sortValue || 0);
+      });
+
+      const duplicateNames = new Set<string>();
+      pinNameMap.forEach((sortValues, pinName) => {
+        // 如果同一引脚名称有多个不同的sortValue，则标记为重复
+        if (sortValues.length > 1 || new Set(sortValues).size > 1) {
+          duplicateNames.add(pinName);
+        }
+      });
+
+      if (duplicateNames.size > 0) {
+        sameChipDuplicateMap.set(chipIndex, duplicateNames);
+      }
+    });
+
+    // 分组：使用 chipIndex_pinName_sortValue 作为唯一标识
+    // 如果同一芯片内有同名但sortValue不同的，必须分开（每个作为独立组）
+    // 如果不同芯片间同名，可以合并（但要检查是否来自同一芯片内的重复情况）
+    const pinGroups: PinRecord[][] = [];
+    const groupMap = new Map<string, number>(); // groupKey -> groupIndex
+
+    pinRecords.forEach((record) => {
+      // 检查是否是同一芯片内的同名但sortValue不同的情况
+      const isSameChipDuplicate = sameChipDuplicateMap.get(record.chipIndex)?.has(record.pinName);
+
+      if (isSameChipDuplicate) {
+        // 同一芯片内的同名但sortValue不同的引脚，必须分开行
+        // 使用 chipIndex_pinName_sortValue 作为唯一分组键
+        const groupKey = `${record.chipIndex}_${record.pinName}_${record.sortValue}`;
+        if (!groupMap.has(groupKey)) {
+          groupMap.set(groupKey, pinGroups.length);
+          pinGroups.push([record]);
+        }
+      } else {
+        // 不同芯片间的同名引脚，可以合并到一行
+        // 查找已有的同名引脚组（排除同一芯片内重复的情况）
+        let foundGroup = false;
+        for (let i = 0; i < pinGroups.length; i++) {
+          const group = pinGroups[i];
+          const firstRecord = group[0];
+
+          // 检查是否是同名且来自不同芯片（且不是同一芯片内重复的情况）
+          if (
+            firstRecord.pinName === record.pinName &&
+            firstRecord.chipIndex !== record.chipIndex &&
+            !sameChipDuplicateMap.get(firstRecord.chipIndex)?.has(firstRecord.pinName) &&
+            !sameChipDuplicateMap.get(record.chipIndex)?.has(record.pinName)
+          ) {
+            // 检查组内是否已有来自当前芯片的记录
+            const hasSameChip = group.some((r) => r.chipIndex === record.chipIndex && r.pinName === record.pinName);
+            if (!hasSameChip) {
+              group.push(record);
+              foundGroup = true;
+              break;
+            }
+          }
+        }
+
+        if (!foundGroup) {
+          // 创建新组
+          const groupKey = `${record.chipIndex}_${record.pinName}_${record.sortValue}`;
+          groupMap.set(groupKey, pinGroups.length);
+          pinGroups.push([record]);
+        }
+      }
+    });
+
+    // 按引脚名称和最小sortValue排序分组
+    pinGroups.sort((a, b) => {
+      const aPinName = a[0].pinName;
+      const bPinName = b[0].pinName;
+      if (aPinName !== bPinName) {
+        return aPinName.localeCompare(bPinName);
+      }
+      // 同名引脚，按最小的sortValue排序
+      const aMinSort = Math.min(...a.map((r) => r.sortValue));
+      const bMinSort = Math.min(...b.map((r) => r.sortValue));
+      return aMinSort - bMinSort;
+    });
 
     // 创建新的工作簿
     const workbook = new ExcelJS.Workbook();
@@ -226,25 +331,32 @@ const getExcel = async () => {
       }
     }
 
-    // 构建数据行 - 遍历所有唯一的引脚名称
+    // 构建数据行 - 遍历分组后的引脚数据
     let dataRowIndex = 3;
-    for (const pinName of sortedPinNames) {
+    for (const group of pinGroups) {
       let currentCol = 1;
 
-      // 找到第一个包含此引脚的芯片数据（用于填充固定列）
-      let referencePin = null;
-      for (const chip of chips) {
-        const pin = chip.pins.find((p) => p.Name === pinName);
-        if (pin) {
-          referencePin = pin;
-          break;
-        }
-      }
+      // 获取组内的引脚名称（应该都相同）
+      const pinName = group[0].pinName;
 
-      // Package 列的数据 - 使用sortValue而不是索引
-      for (const chip of chips) {
-        const pin = chip.pins.find((p) => p.Name === pinName);
-        worksheet.getCell(dataRowIndex, currentCol).value = pin && pin.sortValue ? pin.sortValue : "-";
+      // 找到sortValue最小的引脚作为参考（用于填充固定列）
+      // 按需求：不同芯片的同名引脚，数据填充都填充到sortValue最小的那个
+      const referenceRecord = group.reduce((min, record) => (record.sortValue < min.sortValue ? record : min));
+      const referencePin = referenceRecord.pin;
+
+      // Package 列的数据 - 使用sortValue
+      // 对于每个芯片，如果组内有该芯片的记录，使用组内的sortValue
+      // 如果没有该芯片的记录，填"-"
+      for (let chipIndex = 0; chipIndex < chips.length; chipIndex++) {
+        // 检查组内是否有来自当前芯片的记录
+        const groupRecord = group.find((r) => r.chipIndex === chipIndex && r.pinName === pinName);
+        if (groupRecord) {
+          // 使用组内的sortValue
+          worksheet.getCell(dataRowIndex, currentCol).value = groupRecord.sortValue || "-";
+        } else {
+          // 该芯片没有这个引脚（或者不在组内），填"-"
+          worksheet.getCell(dataRowIndex, currentCol).value = "-";
+        }
         worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
         currentCol++;
       }
@@ -268,10 +380,10 @@ const getExcel = async () => {
 
       // Alternate functions
       const digitalText = (referencePin?.Digital || [])
-        .filter((item) => item && !["一", "-"].includes(item))
+        .filter((item: string) => item && !["一", "-"].includes(item))
         .join("\r\n");
       const analogText = (referencePin?.Analog || [])
-        .filter((item) => item && !["一", "-"].includes(item))
+        .filter((item: string) => item && !["一", "-"].includes(item))
         .join("\r\n");
 
       // Digital 列 - 支持换行
@@ -287,11 +399,12 @@ const getExcel = async () => {
       currentCol++;
 
       // Function selection
-      for (const chip of chips) {
-        const pin = chip.pins.find((p) => p.Name === pinName);
+      for (let chipIndex = 0; chipIndex < chips.length; chipIndex++) {
+        // 检查组内是否有来自当前芯片的记录
+        const groupRecord = group.find((r) => r.chipIndex === chipIndex && r.pinName === pinName);
         let value = "";
-        if (pin && pin.selectLabel) {
-          value = pin.selectLabel;
+        if (groupRecord && groupRecord.pin.selectLabel) {
+          value = groupRecord.pin.selectLabel;
           // 如果selectLabel包含当前Pin name，去除当前Pin name
           if (value.includes(pinName)) {
             // 去掉 Pin name 前缀（包括点号）
@@ -302,6 +415,7 @@ const getExcel = async () => {
             value = value.replace(/\./g, "_");
           }
         }
+        // 如果组内没有该芯片的记录，value保持为空字符串
         worksheet.getCell(dataRowIndex, currentCol).value = value;
         worksheet.getCell(dataRowIndex, currentCol).style = baseStyle as any;
         currentCol++;
