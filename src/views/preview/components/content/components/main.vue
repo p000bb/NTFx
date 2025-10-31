@@ -26,7 +26,7 @@
     <!-- 芯片文字：型号 -->
     <text
       :x="width / 2"
-      :y="height / 2 - chipSize * 0.02"
+      :y="height / 2 + chipSize * 0.04"
       text-anchor="middle"
       :font-size="modelFontSize"
       fill="#262626"
